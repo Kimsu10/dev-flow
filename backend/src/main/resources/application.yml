@@ -1,6 +1,10 @@
 spring:
   application:
     name: devflow
+  flyway:
+    default-schema: blog
+    schemas: blog
+    locations: classpath:db/migration/blog
   datasource:
     url: ${DB_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:15432}/${POSTGRES_DB:devflow}}
     username: ${DB_USERNAME:${POSTGRES_USER}}

@@ -1,12 +1,12 @@
 # DevFlow
 
-Vue 3 + Vite + TypeScript와 Java 21 + Spring Boot 3.5 + Gradle 기반 개인 개발 블로그의 초기 애플리케이션입니다. 현재 범위는 PostgreSQL 연결 검사와 상태 화면입니다.
+Vue 3 + Vite + TypeScript와 Java 21 + Spring Boot 3.5 + Gradle 기반 개인 개발 블로그입니다. 카테고리별 메인 페이지, 공개 게시글 목록·상세, Markdown 에디터 UI, PostgreSQL 상태 검사와 개발 Agent 보고 기능을 제공합니다. 에디터의 저장·발행 API는 아직 연결하지 않았습니다.
 
 ## 구조
 
 ```text
-frontend/       Vue 앱, API 상태 화면, 컴포넌트 테스트
-backend/        Spring Boot, Gradle Wrapper, 테스트
+frontend/       Vue 블로그 화면, Markdown 에디터, 컴포넌트 테스트
+backend/        Spring Boot, MyBatis 조회 API, Flyway, Gradle Wrapper, 테스트
   src/main/java/com/devflow/health/
     controller/ HTTP 응답
     service/    상태 판정
@@ -19,6 +19,8 @@ scripts/        기존 Codex 완료 알림 호환 스크립트
 Codex 작업 시작·완료·실패를 Discord에 자동 보고하려면 [DevFlow Agent 실행 안내](agent/README.md)를 참고하세요. 보고는 Agent를 통해 시작한 작업에 적용됩니다.
 
 S3 이미지 기능을 위한 서울 리전·로컬 AWS 인증 설정과 실제 업로드·조회·삭제 검증 결과는 [S3 설정 안내](docs/aws-s3.md)를 참고하세요. 블로그 이미지 업로드 API는 아직 구현하지 않았습니다.
+
+메인 페이지의 API·DB 변경, 개발용 샘플, 검증 결과는 [블로그 메인 개발 안내](docs/blog-main.md)를 참고하세요. `/`는 블로그, `/posts`는 목록, `/posts/{id}`는 상세, `/posts/create`는 기존 에디터, `/status`는 서비스 상태입니다.
 
 ## 요구사항
 

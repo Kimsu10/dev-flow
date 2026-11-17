@@ -27,7 +27,7 @@ onMounted(checkHealth)
     <p class="eyebrow">개발의 흐름을 기록하다</p>
     <h1>DevFlow</h1>
     <p>개인 개발 블로그의 첫 시작.</p>
-    <section aria-labelledby="health-title" :aria-busy="state === 'loading'">
+    <section class="service-status" aria-labelledby="health-title" :aria-busy="state === 'loading'">
       <h2 id="health-title">서비스 상태</h2>
       <p role="status" :class="state">{{ labels[state] }}</p>
       <button :disabled="state === 'loading'" @click="checkHealth">다시 확인</button>

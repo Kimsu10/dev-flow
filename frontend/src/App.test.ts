@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view'
 import { routes } from './router'
 import App from './App.vue'
 let app: VueApp | undefined
-async function mountApp(path = '/') {
+async function mountApp(path = '/status') {
   const host = document.createElement('div')
   document.body.append(host)
   const router = createRouter({ history: createMemoryHistory(), routes })
@@ -42,8 +42,8 @@ it('retries after network failure', async () => {
   expect(fetchMock).toHaveBeenCalledTimes(2)
 })
 it('keeps the editor off home and navigates to a blank create page', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'UP', database: 'UP' }))))
-  const { host, router } = await mountApp()
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { categories: [] } }))))
+  const { host, router } = await mountApp('/')
   expect(host.querySelector('.cm-editor')).toBeNull()
   const link = host.querySelector<HTMLAnchorElement>('a[href="/posts/create"]')!
   link.click()
