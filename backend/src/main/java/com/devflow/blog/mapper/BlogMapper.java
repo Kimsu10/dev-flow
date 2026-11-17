@@ -15,6 +15,7 @@ public interface BlogMapper {
         c.id AS category_id, c.name AS category_name, c.slug AS category_slug, c.sort_order AS category_sort_order
         """;
     String VISIBLE = "p.status = 'PUBLISHED' AND p.deleted_at IS NULL AND p.published_at <= CURRENT_TIMESTAMP";
+    String SEARCH_XML = " <if test='pattern != null'>AND (p.title ILIKE #{pattern} ESCAPE '!' OR p.summary ILIKE #{pattern} ESCAPE '!' OR p.content_markdown ILIKE #{pattern} ESCAPE '!')</if>";
     String VISIBLE_XML = "p.status = 'PUBLISHED' AND p.deleted_at IS NULL AND p.published_at &lt;= CURRENT_TIMESTAMP";
 
     @Select("""
@@ -35,12 +36,12 @@ public interface BlogMapper {
 
     @Select("<script>SELECT " + POST_COLUMNS + " FROM blog.posts p LEFT JOIN blog.categories c ON c.id=p.category_id WHERE "
         + VISIBLE_XML + " <if test='categoryId != null'>AND p.category_id=#{categoryId}</if>"
-        + " ORDER BY p.published_at DESC, p.id DESC LIMIT #{size} OFFSET #{offset}</script>")
-    List<PostRow> findPosts(@Param("categoryId") Long categoryId, @Param("size") int size, @Param("offset") long offset);
+        + SEARCH_XML + " ORDER BY p.published_at DESC, p.id DESC LIMIT #{size} OFFSET #{offset}</script>")
+    List<PostRow> findPosts(@Param("categoryId") Long categoryId, @Param("size") int size, @Param("offset") long offset, @Param("pattern") String pattern);
 
     @Select("<script>SELECT count(*) FROM blog.posts p WHERE " + VISIBLE_XML
-        + " <if test='categoryId != null'>AND p.category_id=#{categoryId}</if></script>")
-    long countPosts(@Param("categoryId") Long categoryId);
+        + " <if test='categoryId != null'>AND p.category_id=#{categoryId}</if>" + SEARCH_XML + "</script>")
+    long countPosts(@Param("categoryId") Long categoryId, @Param("pattern") String pattern);
 
     @Select("""
         SELECT p.id, p.title, p.summary, p.thumbnail_url, p.created_at, p.published_at, p.content_markdown,

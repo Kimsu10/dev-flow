@@ -19,8 +19,9 @@ async function get<T>(path: string, signal: AbortSignal): Promise<T> {
 export const getBlogHome = (signal: AbortSignal) => get<BlogHome>('/blog/home', signal)
 export const getCategories = (signal: AbortSignal) => get<Category[]>('/categories', signal)
 export const getPost = (id: string, signal: AbortSignal) => get<PostDetail>(`/posts/${encodeURIComponent(id)}`, signal)
-export function getPosts(categoryId: string | undefined, page: number, signal: AbortSignal) {
+export function getPosts(categoryId: string | undefined, page: number, signal: AbortSignal, search = '') {
   const query = new URLSearchParams({ page: String(page), size: '9' })
   if (categoryId) query.set('categoryId', categoryId)
+  if (search.trim()) query.set('q', search.trim())
   return get<PostPage>(`/posts?${query}`, signal)
 }

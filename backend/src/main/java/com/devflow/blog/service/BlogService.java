@@ -29,12 +29,18 @@ public class BlogService {
     public List<Category> categories() {
         return mapper.findCategories().stream().map(Category::from).toList();
     }
-    public PostPage posts(Long categoryId, int page, int size) {
+    public PostPage posts(Long categoryId, int page, int size, String query) {
+        String search = query == null ? "" : query.strip();
+        if (search.length() > 100) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "검색어는 100자 이하여야 합니다.");
+        }
+        // Escape LIKE metacharacters so searches are literal, including percent and underscore.
+        String pattern = search.isEmpty() ? null : "%" + search.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
         if (page < 0 || size < 1 || size > 50 || (categoryId != null && categoryId < 1)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "페이지는 0 이상, 크기는 1~50, 카테고리 ID는 양수여야 합니다.");
         }
-        long total = mapper.countPosts(categoryId);
-        var items = mapper.findPosts(categoryId, size, (long) page * size).stream().map(PostSummary::from).toList();
+        long total = mapper.countPosts(categoryId, pattern);
+        var items = mapper.findPosts(categoryId, size, (long) page * size, pattern).stream().map(PostSummary::from).toList();
         return new PostPage(items, page, size, total, (total + size - 1) / size);
     }
     public PostDetail post(long id) {

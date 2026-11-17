@@ -123,4 +123,23 @@ class BlogPostgresIntegrationTest {
     @Test void homeQueryDoesNotLoadMarkdownBodies() {
         assertTrue(mapper.findHomePosts().stream().allMatch(row -> row.contentMarkdown() == null));
     }
+
+    @Test void searchIsCaseInsensitiveAndOnlyReturnsVisiblePosts() throws Exception {
+        JsonNode page = response("/api/posts?categoryId=" + firstCategory + "&q=LATEST&size=1").path("data");
+        assertEquals(2, page.path("totalElements").asInt());
+        assertEquals(2, page.path("totalPages").asInt());
+        assertEquals(publishedId, page.path("items").get(0).path("id").asLong());
+        assertEquals(0, response("/api/posts?q=hidden").path("data").path("totalElements").asInt());
+    }
+
+    @Test void searchFindsBodyAndTreatsWildcardsLiterally() throws Exception {
+        long id = post(firstCategory, "literal 100%_!", "PUBLISHED", OffsetDateTime.now().minusHours(1), false);
+        mvc.perform(get("/api/posts").param("q", "100%_!"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
+            .andExpect(jsonPath("$.data.items[0].id").value(id));
+        mvc.perform(get("/api/posts").param("categoryId", String.valueOf(firstCategory)).param("q", "int n"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(5));
+        mvc.perform(get("/api/posts").param("q", "a".repeat(101)))
+            .andExpect(status().isBadRequest());
+    }
 }

@@ -97,3 +97,9 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
   .blog-footer { margin-top: 42px; }
 }
 @media (prefers-reduced-motion: reduce) { .post-card .post-thumbnail { transition: none; } }
+
+.post-search { margin: 2rem 0; }
+.post-search label { display: block; margin-bottom: .6rem; font-weight: 600; }
+.post-search > div { display: flex; gap: .6rem; }
+.post-search input { flex: 1; min-width: 0; padding: .85rem; border: 1px solid #aaa; border-radius: .4rem; font: inherit; background: transparent; color: inherit; }
+.post-search button { padding: .7rem 1.3rem; cursor: pointer; font: inherit; }

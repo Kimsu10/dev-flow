@@ -107,3 +107,31 @@ it('aborts an in-flight request when leaving home', async () => {
   await router.push('/status')
   await vi.waitFor(() => expect(signal?.aborted).toBe(true))
 })
+
+it('submits search, resets page and preserves search across category navigation', async () => {
+  const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve(response(url === '/api/categories'
+    ? [category] : { items: [post], page: 0, size: 9, totalElements: 1, totalPages: 3 })))
+  vi.stubGlobal('fetch', fetchMock)
+  const { host, router } = await mount('/posts?categoryId=91&page=2')
+  await vi.waitFor(() => expect(host.querySelector('.post-card')).not.toBeNull())
+  const input = host.querySelector<HTMLInputElement>('#post-search')!
+  input.value = ' Java & Vue '
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  await vi.waitFor(() => expect(router.currentRoute.value.query.q).toBe('Java & Vue'))
+  expect(router.currentRoute.value.query.page).toBeUndefined()
+  await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('q=Java+%26+Vue'))).toBe(true))
+  host.querySelector<HTMLAnchorElement>('.category-nav a')!.click()
+  await vi.waitFor(() => expect(router.currentRoute.value.query.categoryId).toBeUndefined())
+  expect(router.currentRoute.value.query.q).toBe('Java & Vue')
+  await router.back()
+  await vi.waitFor(() => expect(router.currentRoute.value.query.categoryId).toBe('91'))
+})
+
+it('distinguishes empty search results from an empty blog', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(response(url === '/api/categories'
+    ? [] : { items: [], page: 0, size: 9, totalElements: 0, totalPages: 0 }))))
+  const { host } = await mount('/posts?q=missing')
+  await vi.waitFor(() => expect(host.textContent).toContain('검색 결과가 없습니다'))
+  expect(host.textContent).not.toContain('아직 발행된 글이 없습니다')
+})

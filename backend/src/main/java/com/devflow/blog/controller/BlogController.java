@@ -21,8 +21,9 @@ public class BlogController {
     @GetMapping("/posts")
     public ApiResponse<PostPage> posts(@RequestParam(required = false) Long categoryId,
                                       @RequestParam(defaultValue = "0") int page,
-                                      @RequestParam(defaultValue = "10") int size) {
-        return new ApiResponse<>(service.posts(categoryId, page, size));
+                                      @RequestParam(defaultValue = "10") int size,
+                                      @RequestParam(required = false) String q) {
+        return new ApiResponse<>(service.posts(categoryId, page, size, q));
     }
     @GetMapping("/posts/{id}")
     public ApiResponse<PostDetail> post(@PathVariable long id) { return new ApiResponse<>(service.post(id)); }
