@@ -12,7 +12,11 @@ backend/        Spring Boot, Gradle Wrapper, 테스트
     service/    상태 판정
     mapper/     MyBatis SELECT 1
 compose.yaml    PostgreSQL 17 및 영속 볼륨
+agent/          Codex 실행 Orchestrator, Discord 보고, PostgreSQL 감사 기록
+scripts/        기존 Codex 완료 알림 호환 스크립트
 ```
+
+Codex 작업 시작·완료·실패를 Discord에 자동 보고하려면 [DevFlow Agent 실행 안내](agent/README.md)를 참고하세요. 보고는 Agent를 통해 시작한 작업에 적용됩니다.
 
 ## 요구사항
 
@@ -102,4 +106,4 @@ DB 종료는 `docker compose down`을 사용합니다. 볼륨은 유지되며, �
 - 프런트엔드 `npm test`: 테스트 4개 통과, `npm run build`: 성공
 - `npm audit`: 취약점 0건
 - `docker compose config --quiet`: 설정 검증 통과
-- 실제 PostgreSQL 연동: 검증 환경의 Docker 엔진 중지로 미실행. 위 실행 절차로 별도 확인 필요
+- 실제 PostgreSQL 연동 (2026-11-17): `.env`의 `localhost:15432/devflow`에 연결한 백엔드에서 `GET /api/health` HTTP 200 및 `{"status":"UP","database":"UP"}` 확인. Controller → Service → MyBatis Mapper의 `SELECT 1` 실행 검증 완료

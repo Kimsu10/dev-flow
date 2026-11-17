@@ -8,4 +8,7 @@ backend/build/
 *.log
 .idea/
 *.iml
+.venv/
+__pycache__/
+*.pyc
 .DS_Store
