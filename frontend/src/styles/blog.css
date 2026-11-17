@@ -103,3 +103,11 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 .post-search > div { display: flex; gap: .6rem; }
 .post-search input { flex: 1; min-width: 0; padding: .85rem; border: 1px solid #aaa; border-radius: .4rem; font: inherit; background: transparent; color: inherit; }
 .post-search button { padding: .7rem 1.3rem; cursor: pointer; font: inherit; }
+.reading-time { font-size: .85rem; color: #686868; }
+.article-toc { margin: 2rem 0; padding: 1.2rem 1.5rem; border: 1px solid #d0d0d0; border-radius: .5rem; }
+.article-toc summary { cursor: pointer; font-weight: 600; }
+.article-toc ol { list-style: none; padding: 0; margin-bottom: 0; }
+.article-toc li { margin: .55rem 0; overflow-wrap: anywhere; }
+.article-toc .toc-nested { padding-left: 1rem; }
+.article-toc a { color: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.post-body :is(h1, h2, h3, h4, h5, h6)[id] { scroll-margin-top: 2rem; }

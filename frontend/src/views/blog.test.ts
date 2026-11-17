@@ -135,3 +135,21 @@ it('distinguishes empty search results from an empty blog', async () => {
   await vi.waitFor(() => expect(host.textContent).toContain('검색 결과가 없습니다'))
   expect(host.textContent).not.toContain('아직 발행된 글이 없습니다')
 })
+
+it('renders a linked table of contents and restores a deep link after the body loads', async () => {
+  const scroll = vi.fn()
+  const original = HTMLElement.prototype.scrollIntoView
+  HTMLElement.prototype.scrollIntoView = scroll
+  try {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(response({ post, contentMarkdown: '# Intro\n\n## Install\n\nText' }))))
+    const { host, router } = await mount('/posts/123#section-install')
+    await vi.waitFor(() => expect(host.querySelectorAll('.article-toc a')).toHaveLength(2))
+    expect(host.querySelectorAll('.article-toc a')[1]?.getAttribute('href')).toBe('#section-install')
+    expect(host.querySelector('#section-install')?.textContent).toBe('Install')
+    expect(host.textContent).toContain('약 1분 읽기')
+    await vi.waitFor(() => expect(scroll).toHaveBeenCalled())
+    await router.push('/posts/124')
+    await vi.waitFor(() => expect(host.querySelectorAll('.article-toc a')).toHaveLength(2))
+    expect(host.querySelectorAll('#section-install')).toHaveLength(1)
+  } finally { HTMLElement.prototype.scrollIntoView = original }
+})
