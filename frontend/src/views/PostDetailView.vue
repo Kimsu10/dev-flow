@@ -5,6 +5,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import BlogShell from '../components/blog/BlogShell.vue'
 import RequestState from '../components/blog/RequestState.vue'
 import ThumbnailImage from '../components/blog/ThumbnailImage.vue'
+import PostCard from '../components/blog/PostCard.vue'
 import { renderArticle } from '../components/editor/markdown'
 import { getPost } from '../api/blog'
 import { useBlogResource } from '../composables/useBlogResource'
@@ -24,7 +25,11 @@ const date = computed(() => {
   const raw = data.value?.post.publishedAt || data.value?.post.createdAt
   return raw ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'long', timeZone: 'Asia/Seoul' }).format(new Date(raw)) : ''
 })
-watch(() => route.params.id, reload)
+watch(() => route.params.id, async () => {
+  await reload()
+  await nextTick()
+  if (!route.hash && !error.value && String(data.value?.post.id) === String(route.params.id)) window.scrollTo({ top: 0, left: 0 })
+})
 usePageView(computed(() => !loading.value && !error.value && !!data.value && String(data.value.post.id) === String(route.params.id)), () => data.value?.post.id)
 </script>
 
@@ -46,5 +51,9 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value && Str
       </details>
       <div ref="body" class="post-body" v-html="article.html" />
     </article>
+    <section v-if="!loading && !error && data?.relatedPosts?.length" class="related-posts" aria-labelledby="related-title">
+      <h2 id="related-title">같은 카테고리의 다른 글</h2>
+      <div class="post-grid"><PostCard v-for="post in data.relatedPosts" :key="post.id" :post="post" /></div>
+    </section>
   </BlogShell>
 </template>

@@ -49,4 +49,8 @@ public interface BlogMapper {
         FROM blog.posts p LEFT JOIN blog.categories c ON c.id = p.category_id
         WHERE p.id = #{id} AND """ + " " + VISIBLE)
     PostRow findPost(@Param("id") long id);
+
+    @Select("SELECT " + POST_COLUMNS + " FROM blog.posts p LEFT JOIN blog.categories c ON c.id=p.category_id WHERE "
+        + VISIBLE + " AND p.category_id=#{categoryId} AND p.id != #{id} ORDER BY p.published_at DESC,p.id DESC LIMIT 3")
+    List<PostRow> findRelatedPosts(@Param("categoryId") long categoryId, @Param("id") long id);
 }

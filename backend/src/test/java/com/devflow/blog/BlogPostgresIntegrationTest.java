@@ -27,6 +27,7 @@ class BlogPostgresIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
     @Autowired BlogMapper mapper;
+    @Autowired org.mybatis.spring.SqlSessionTemplate sqlSession;
     private long firstCategory;
     private long secondCategory;
     private long emptyCategory;
@@ -141,5 +142,29 @@ class BlogPostgresIntegrationTest {
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(5));
         mvc.perform(get("/api/posts").param("q", "a".repeat(101)))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test void relatedPostsAreLimitedToVisiblePeersInTheSameCategory() throws Exception {
+        JsonNode related = response("/api/posts/" + publishedId).path("data").path("relatedPosts");
+        assertEquals(3, related.size());
+        assertEquals("latest A", related.get(0).path("title").asText());
+        assertEquals("older", related.get(1).path("title").asText());
+        assertEquals("oldest", related.get(2).path("title").asText());
+        for (JsonNode item : related) {
+            assertNotEquals(publishedId, item.path("id").asLong());
+            assertEquals(firstCategory, item.path("category").path("id").asLong());
+            assertFalse(item.has("contentMarkdown"));
+        }
+        assertTrue(mapper.findRelatedPosts(firstCategory, publishedId).stream().allMatch(row -> row.contentMarkdown() == null));
+    }
+
+    @Test void uncategorizedAndLonePostsHaveNoInventedRecommendations() throws Exception {
+        long lone = post(emptyCategory, "only public", "PUBLISHED", OffsetDateTime.now().minusHours(1), false);
+        assertEquals(0, response("/api/posts/" + lone).path("data").path("relatedPosts").size());
+        jdbc.update("UPDATE blog.posts SET category_id=NULL WHERE id=?", lone);
+        sqlSession.clearCache();
+        JsonNode uncategorized = response("/api/posts/" + lone).path("data");
+        assertTrue(uncategorized.path("post").path("category").isNull());
+        assertEquals(0, uncategorized.path("relatedPosts").size());
     }
 }

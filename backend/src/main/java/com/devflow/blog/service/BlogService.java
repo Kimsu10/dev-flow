@@ -48,6 +48,8 @@ public class BlogService {
         if (row == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "게시글을 찾을 수 없습니다.");
         }
-        return new PostDetail(PostSummary.from(row), row.contentMarkdown());
+        var related = row.categoryId() == null ? List.<PostSummary>of()
+            : mapper.findRelatedPosts(row.categoryId(), id).stream().map(PostSummary::from).toList();
+        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related);
     }
 }

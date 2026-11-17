@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createApp, type App as VueApp } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '../App.vue'
@@ -7,6 +7,7 @@ import { routes } from '../router'
 import type { Category, PostSummary } from '../types/blog'
 
 let app: VueApp | undefined
+beforeEach(() => { vi.stubGlobal('scrollTo', vi.fn()) })
 const category: Category = { id: 91, name: 'API가 정한 카테고리', slug: 'from-api', sortOrder: 0 }
 const post: PostSummary = { id: 123, title: '데이터에서 읽은 제목', summary: '서버에서 전달한 게시글 요약입니다.', thumbnailUrl: null,
   publishedAt: '2026-11-17T00:00:00Z', createdAt: '2026-11-16T00:00:00Z', category }
@@ -162,4 +163,19 @@ it('recovers unknown URLs with home and search links and an accessible main targ
   expect(host.querySelector('.skip-to-content')?.getAttribute('href')).toBe('#main-content')
   expect(host.querySelector('main')?.getAttribute('tabindex')).toBe('-1')
   expect(router.currentRoute.value.name).toBe('not-found')
+})
+
+it('offers API-backed related posts and replaces recommendations when navigating to a peer', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(response({
+    post: { ...post, id: url.endsWith('/124') ? 124 : 123 }, contentMarkdown: '# Body',
+    relatedPosts: url.endsWith('/124') ? [] : [{ ...post, id: 124, title: 'Related article' }],
+  }))))
+  const { host, router } = await mount('/posts/123')
+  await vi.waitFor(() => expect(host.querySelectorAll('.related-posts .post-card')).toHaveLength(1))
+  expect(host.querySelector('.related-posts h2')?.textContent).toBe('같은 카테고리의 다른 글')
+  host.querySelector<HTMLAnchorElement>('.related-posts a')!.click()
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/posts/124'))
+  await vi.waitFor(() => expect(host.querySelector('.post-body')).not.toBeNull())
+  expect(host.querySelector('.related-posts')).toBeNull()
+  expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0 })
 })

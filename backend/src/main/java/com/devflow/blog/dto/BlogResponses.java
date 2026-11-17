@@ -25,5 +25,5 @@ public final class BlogResponses {
     public record CategorySection(Category category, List<PostSummary> posts) {}
     public record Home(List<CategorySection> categories) {}
     public record PostPage(List<PostSummary> items, int page, int size, long totalElements, long totalPages) {}
-    public record PostDetail(PostSummary post, String contentMarkdown) {}
+    public record PostDetail(PostSummary post, String contentMarkdown, List<PostSummary> relatedPosts) {}
 }

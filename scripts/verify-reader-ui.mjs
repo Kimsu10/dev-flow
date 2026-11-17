@@ -76,6 +76,8 @@ try {
   const listing = await (await fetch(base + '/api/posts?size=1')).json()
   assert.ok(listing.data.items.length, 'At least one published post is required; this check never seeds data.')
   const post = listing.data.items[0]
+  const detail = await (await fetch(base + '/api/posts/' + post.id)).json()
+  const expectedRelated = detail.data.relatedPosts || []
   const term = post.title.slice(0, 10)
   for (const [label, width, height] of [['desktop', 1440, 1100], ['mobile', 390, 900]]) {
     await command('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
@@ -98,10 +100,18 @@ try {
     }
     assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'), false)
     await command('Page.captureScreenshot', { format: 'png' }).then(result => writeFile(path.join(output, label + '-reader.png'), Buffer.from(result.data, 'base64')))
+    assert.equal(await evaluate("document.querySelectorAll('.related-posts .post-card').length"), expectedRelated.length)
+    if (expectedRelated.length) {
+      await evaluate("document.querySelector('.related-posts').scrollIntoView()")
+      await command('Page.captureScreenshot', { format: 'png' }).then(result => writeFile(path.join(output, label + '-related.png'), Buffer.from(result.data, 'base64')))
+      await evaluate("document.querySelector('.related-posts a').click()")
+      await waitFor(`location.pathname === '/posts/${expectedRelated[0].id}' && document.querySelector('.post-body') !== null && scrollY === 0`)
+      assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'), false)
+    }
     await navigate('/missing-page', "document.querySelector('.not-found-title') !== null")
     assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'), false)
     assert.ok(await evaluate("document.querySelector('.skip-to-content').getAttribute('href') === '#main-content'"))
-    results.push({ label, search: true, article: true, headingLinks: links.length, notFound: true, overflow: false })
+    results.push({ label, search: true, article: true, headingLinks: links.length, relatedPosts: expectedRelated.length, notFound: true, overflow: false })
   }
   assert.deepEqual(scriptErrors, [])
   await writeFile(path.join(output, 'results.json'), JSON.stringify({ results, apiRequests: apiCalls.length, scriptErrors }, null, 2))
