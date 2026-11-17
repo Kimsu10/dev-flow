@@ -90,7 +90,7 @@ try {
     assert.equal(layout.background, 'rgb(255, 255, 255)'); assert.equal(layout.overflow, false)
     assert.ok(Math.abs(layout.ratio - 1.5) < 0.01)
     const calls = apiCalls.slice(start)
-    assert.deepEqual(calls, [base + '/api/blog/home'])
+    assert.deepEqual(calls.filter(url => !url.endsWith('/api/auth/me')), [base + '/api/blog/home'])
     const screenshot = await command('Page.captureScreenshot', { format: 'png' })
     await writeFile(path.join(output, `${label}.png`), Buffer.from(screenshot.data, 'base64'))
     results.push({ viewport: label, width, ...layout, homeApiRequests: calls.length })
@@ -102,13 +102,13 @@ try {
   await evaluate("document.querySelector('.category-heading a').click()")
   await waitFor("document.querySelector('.list-intro') && document.querySelectorAll('.post-card').length === 3")
   assert.ok(await evaluate("location.search.includes('categoryId=')"))
-  await navigate('/posts/create', "document.querySelector('.cm-editor') !== null")
-  assert.equal(await evaluate("document.querySelector('.md-title input').value"), '')
+  await navigate('/posts/create', "location.pathname === '/login' && document.querySelector('input[autocomplete=username]') !== null")
+  assert.equal(await evaluate("document.querySelector('.cm-editor') === null"), true)
   await navigate('/', "document.querySelector('.post-card img') !== null")
   await evaluate("document.querySelector('.post-card img').src = '/missing-image-for-qa.png'")
   await waitFor("document.querySelector('.post-card img').src.endsWith('/images/post-placeholder.svg') && document.querySelector('.post-card img').naturalWidth > 0")
   assert.deepEqual(scriptErrors, [])
-  const report = { results, navigation: 'detail/category/editor passed', brokenThumbnail: 'fallback passed', scriptErrors, output }
+  const report = { results, navigation: 'detail/category/anonymous editor guard passed', brokenThumbnail: 'fallback passed', scriptErrors, output }
   await writeFile(path.join(output, 'result.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } finally {

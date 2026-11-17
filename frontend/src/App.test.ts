@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { EditorView } from '@codemirror/view'
 import { routes } from './router'
 import App from './App.vue'
+import { auth } from './auth'
 let app: VueApp | undefined
 async function mountApp(path = '/status') {
   const host = document.createElement('div')
@@ -20,6 +21,7 @@ afterEach(() => {
   app?.unmount()
   document.body.innerHTML = ''
   vi.unstubAllGlobals()
+  auth.user = null; auth.ready = false
 })
 it.each([
   [200, { status: 'UP', database: 'UP' }, '정상 동작'],
@@ -41,7 +43,8 @@ it('retries after network failure', async () => {
   await vi.waitFor(() => expect(host.textContent).toContain('정상 동작'))
   expect(fetchMock).toHaveBeenCalledTimes(2)
 })
-it('keeps the editor off home and navigates to a blank create page', async () => {
+it('keeps the editor off home and navigates to a blank create page for ADMIN', async () => {
+  auth.user = { id: 1, username: 'admin', email: 'admin@example.test', role: 'ADMIN', status: 'ACTIVE' }; auth.ready = true
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { categories: [] } }))))
   const { host, router } = await mountApp('/')
   expect(host.querySelector('.cm-editor')).toBeNull()
@@ -54,18 +57,16 @@ it('keeps the editor off home and navigates to a blank create page', async () =>
   expect(host.querySelector('.md-preview article')?.innerHTML).toBe('')
   expect(host.querySelector<HTMLInputElement>('.md-title input')?.value).toBe('')
 })
-it('supports direct create navigation and category/tag input without calling APIs', async () => {
-  const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock)
+it('supports direct create navigation and category/tag input while loading categories', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [] }))); vi.stubGlobal('fetch', fetchMock)
   const { host } = await mountApp('/posts/create')
   const category = host.querySelector<HTMLInputElement>('#post-category')!
   const tags = host.querySelector<HTMLInputElement>('#post-tags')!
-  expect(category.value).toBe(''); expect(tags.value).toBe('')
-  category.value = 'Frontend'; category.dispatchEvent(new Event('input'))
+  expect(category.value).toBe('미분류'); expect(tags.value).toBe('')
   tags.value = 'Vue, TypeScript, Vue, '; tags.dispatchEvent(new Event('input'))
   await vi.waitFor(() => expect(Array.from(host.querySelectorAll('.post-tags li')).map(el => el.textContent)).toEqual(['#Vue', '#TypeScript']))
   const editor = EditorView.findFromDOM(host.querySelector<HTMLElement>('.cm-editor')!)!
   editor.dispatch({ changes: { from: 0, insert: '# 새 글' } })
   await vi.waitFor(() => expect(host.querySelector('.cm-placeholder')).toBeNull())
-  expect(category.value).toBe('Frontend')
-  expect(fetchMock).not.toHaveBeenCalled()
+  expect(fetchMock).toHaveBeenCalledWith('/api/categories', expect.any(Object))
 })

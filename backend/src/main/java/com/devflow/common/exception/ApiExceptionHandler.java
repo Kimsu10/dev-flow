@@ -20,6 +20,15 @@ public class ApiExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidParameter() {
         return response(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "조회 조건을 확인해 주세요.");
     }
+    @ExceptionHandler({org.springframework.web.bind.MethodArgumentNotValidException.class,
+        org.springframework.http.converter.HttpMessageNotReadableException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidBody() {
+        return response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Check request fields");
+    }
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConflict() {
+        return response(HttpStatus.CONFLICT, "DATA_CONFLICT", "Duplicate account or invalid reference");
+    }
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ErrorResponse> handleDatabase() {
         return response(HttpStatus.SERVICE_UNAVAILABLE, "DATABASE_UNAVAILABLE", "게시글을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.");
