@@ -153,3 +153,13 @@ it('renders a linked table of contents and restores a deep link after the body l
     expect(host.querySelectorAll('#section-install')).toHaveLength(1)
   } finally { HTMLElement.prototype.scrollIntoView = original }
 })
+
+it('recovers unknown URLs with home and search links and an accessible main target', async () => {
+  vi.stubGlobal('fetch', vi.fn())
+  const { host, router } = await mount('/unknown/page')
+  expect(host.querySelector('h1')?.textContent).toBe('페이지를 찾을 수 없습니다.')
+  expect(host.querySelector('.not-found-links a[href="/posts"]')).not.toBeNull()
+  expect(host.querySelector('.skip-to-content')?.getAttribute('href')).toBe('#main-content')
+  expect(host.querySelector('main')?.getAttribute('tabindex')).toBe('-1')
+  expect(router.currentRoute.value.name).toBe('not-found')
+})

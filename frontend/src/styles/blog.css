@@ -111,3 +111,8 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 .article-toc .toc-nested { padding-left: 1rem; }
 .article-toc a { color: inherit; text-decoration: underline; text-underline-offset: .2em; }
 .post-body :is(h1, h2, h3, h4, h5, h6)[id] { scroll-margin-top: 2rem; }
+.skip-to-content { position: absolute; top: 8px; left: 8px; z-index: 100; padding: 12px 18px; background: #fff; border: 2px solid #171717; transform: translateY(-160%); }
+.skip-to-content:focus { transform: translateY(0); }
+.not-found-title { font-size: clamp(24px, 4vw, 36px); }
+.not-found-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 24px; margin-top: 24px; }
+.not-found-links a { text-decoration: underline; text-underline-offset: .2em; }

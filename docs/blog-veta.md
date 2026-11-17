@@ -17,8 +17,22 @@
 
 예상 읽기 시간은 한글·한자·일본어 분당 500자, 나머지 분당 200단어, 코드 분당 20행을 합산한 대략적인 값입니다. 본문 이미지는 지연 로딩합니다. 에디터 미리보기의 기존 렌더링은 유지하고 공개 본문에도 동일한 HTML 비활성화와 DOMPurify 정화를 적용합니다.
 
-## 검증 환경
+## 잘못된 주소 및 키보드 탐색
+
+미등록 URL은 404 안내 화면에서 홈 및 검색으로 이동할 수 있습니다. 블로그 공통 레이아웃에 키보드 포커스 시 나타나는 본문 바로 가기 링크를 추가했습니다. 이 화면은 SPA의 안내이며, 배포 서버의 HTTP 404 응답 설정은 별도로 구성해야 합니다.
+
+## 검증 환경 및 결과
 
 기존 `frontend/node_modules`의 네이티브 바이너리가 사용 중이라 `npm ci`가 EPERM으로 실패했습니다. 실행 중인 프로세스를 종료하지 않고, 무시되는 `artifacts/blog-veta-frontend`에 소스와 잠금 파일을 복사하여 `npm ci`, `npm test`, `npm run build`를 실행합니다.
 
 Gradle은 기존 Java 21과 사용자 Gradle 캐시를 사용합니다. 로컬 PostgreSQL에 대해 기존 롤백 방식의 `postgresTest`를 실행합니다. Docker CLI는 이 환경에서 찾지 못했으므로 Docker Compose 환경 자체의 검증과는 구분합니다.
+
+- 별도 검증 폴더에서 잠금 파일 기반 `npm ci` 성공.
+- `npm test`: 8개 파일, 47개 테스트 통과.
+- `npm run build`: TypeScript 및 Vite 프로덕션 빌드 성공.
+- `gradlew.bat build postgresTest --no-daemon`: 일반 테스트 17개, 실제 PostgreSQL 통합 테스트 16개 통과.
+- 새 Java 서버 `18081`과 Vite `15173`을 사용한 HTTP 확인: health, 목록, 검색 모두 200 응답. 기존 개발 서버는 유지했습니다.
+- `node scripts/verify-reader-ui.mjs`: 실제 Chromium에서 1440px 데스크톱과 390px 모바일 검색 제출, API 응답, 목차·문단 직접 링크, 404, 가로 넘침 없음, JavaScript 오류 없음 확인. 테스트는 기존 공개 글을 읽기만 하며 데이터를 생성하지 않습니다.
+- 브라우저 결과 및 스크린샷: 무시되는 `artifacts/blog-ui/1794929317277/`.
+
+브라우저 검증은 기본 `http://127.0.0.1:15173`을 사용합니다. `BLOG_TEST_BASE`로 Vite 주소, `BLOG_TEST_BROWSER`로 Chromium 실행 파일 경로를 지정할 수 있습니다. 적어도 하나의 공개 글이 필요합니다. 검증 서버를 시작할 때 관리자 자동 생성 설정을 비워 새 계정을 만들지 않았습니다.

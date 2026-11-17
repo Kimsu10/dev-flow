@@ -12,6 +12,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/posts/create', name: 'post-create', meta: { admin: true }, component: () => import('./views/PostCreateView.vue') },
   { path: '/posts', name: 'post-list', component: () => import('./views/PostListView.vue') },
   { path: '/posts/:id(\\d+)', name: 'post-detail', component: () => import('./views/PostDetailView.vue') },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('./views/NotFoundView.vue') },
 ]
 
 export const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes })
