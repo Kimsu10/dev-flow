@@ -2,6 +2,7 @@ import { auth, restoreAuth } from './auth'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 export const routes: RouteRecordRaw[] = [
+  { path: '/admin/analytics', meta: { admin: true }, component: () => import('./views/AnalyticsView.vue') },
   { path: '/login', component: () => import('./views/LoginView.vue') },
   { path: '/forbidden', component: () => import('./views/ForbiddenView.vue') },
   { path: '/admin', meta: { admin: true }, component: () => import('./views/AdminView.vue') },

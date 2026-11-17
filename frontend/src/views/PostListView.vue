@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePageView } from '../analytics/tracking'
 import { computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import BlogShell from '../components/blog/BlogShell.vue'
@@ -15,6 +16,7 @@ const { data, loading, error, reload } = useBlogResource(async signal => {
 })
 const title = computed(() => data.value?.categories.find(c => String(c.id) === categoryId.value)?.name || '모든 게시글')
 watch(() => [route.query.categoryId, route.query.page], reload)
+usePageView(computed(() => !loading.value && !error.value && !!data.value))
 </script>
 
 <template>

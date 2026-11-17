@@ -15,7 +15,7 @@ $settings = @{}
 $allowed = @('POSTGRES_HOST', 'POSTGRES_PORT', 'POSTGRES_DB', 'POSTGRES_USER',
              'POSTGRES_PASSWORD', 'DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'SERVER_PORT',
              'AWS_REGION', 'AWS_PROFILE', 'S3_BUCKET_NAME', 'AUTH_ADMIN_USERNAME', 'AUTH_ADMIN_EMAIL',
-             'AUTH_ADMIN_PASSWORD', 'SESSION_COOKIE_SECURE', 'FORWARD_HEADERS_STRATEGY')
+             'AUTH_ADMIN_PASSWORD', 'SESSION_COOKIE_SECURE', 'FORWARD_HEADERS_STRATEGY', 'ANALYTICS_RETENTION_DAYS', 'ANALYTICS_PUBLIC_ORIGIN')
 foreach ($line in Get-Content -LiteralPath $envPath -Encoding UTF8) {
     if ($line.Trim() -match '^(?:export\s+)?([A-Z_]+)\s*=(.*)$') {
         $key = $matches[1]
@@ -32,7 +32,7 @@ foreach ($line in Get-Content -LiteralPath $envPath -Encoding UTF8) {
 }
 
 foreach ($key in @('AWS_REGION', 'AWS_PROFILE', 'S3_BUCKET_NAME', 'AUTH_ADMIN_USERNAME', 'AUTH_ADMIN_EMAIL',
-                    'AUTH_ADMIN_PASSWORD', 'SESSION_COOKIE_SECURE', 'FORWARD_HEADERS_STRATEGY')) {
+                    'AUTH_ADMIN_PASSWORD', 'SESSION_COOKIE_SECURE', 'FORWARD_HEADERS_STRATEGY', 'ANALYTICS_RETENTION_DAYS', 'ANALYTICS_PUBLIC_ORIGIN')) {
     if ($settings[$key]) {
         [Environment]::SetEnvironmentVariable($key, $settings[$key], 'Process')
     }

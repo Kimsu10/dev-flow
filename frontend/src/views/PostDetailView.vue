@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePageView } from '../analytics/tracking'
 import { computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import BlogShell from '../components/blog/BlogShell.vue'
@@ -15,6 +16,7 @@ const date = computed(() => {
   return raw ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'long', timeZone: 'Asia/Seoul' }).format(new Date(raw)) : ''
 })
 watch(() => route.params.id, reload)
+usePageView(computed(() => !loading.value && !error.value && !!data.value && String(data.value.post.id) === String(route.params.id)), () => data.value?.post.id)
 </script>
 
 <template>

@@ -80,7 +80,7 @@ def main():
         wait(f'http://127.0.0.1:{backend_port}/api/health', backend)
         frontend = start(['node', 'node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', str(frontend_port), '--strictPort'], ROOT / 'frontend', 'frontend')
         wait(env['AUTH_TEST_BASE'], frontend)
-        result = subprocess.run(['node', str(ROOT / 'scripts/verify-auth-ui.mjs')], cwd=ROOT, env=env, capture_output=True, text=True, encoding='utf-8')
+        result = subprocess.run(['node', str(ROOT / ('scripts/verify-analytics-ui.mjs' if '--analytics' in sys.argv else 'scripts/verify-auth-ui.mjs'))], cwd=ROOT, env=env, capture_output=True, text=True, encoding='utf-8')
         if result.returncode:
             # CDP failure messages contain only test conditions, never submitted credentials.
             print(result.stderr)

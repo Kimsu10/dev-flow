@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePageView } from '../analytics/tracking'
 import { computed } from 'vue'
 import BlogShell from '../components/blog/BlogShell.vue'
 import CategorySection from '../components/blog/CategorySection.vue'
@@ -8,6 +9,7 @@ import { useBlogResource } from '../composables/useBlogResource'
 
 const { data, loading, error, reload } = useBlogResource(getBlogHome)
 const sections = computed(() => (data.value?.categories || []).filter(section => section.posts.length > 0))
+usePageView(computed(() => !loading.value && !error.value && !!data.value))
 </script>
 
 <template>

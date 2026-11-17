@@ -23,5 +23,10 @@ server:
         secure: ${SESSION_COOKIE_SECURE:true}
         same-site: lax
 mybatis:
+  type-handlers-package: com.devflow.common.mybatis
   configuration:
     default-statement-timeout: 3
+
+analytics:
+  retention-days: ${ANALYTICS_RETENTION_DAYS:365}
+  public-origin: ${ANALYTICS_PUBLIC_ORIGIN:}
