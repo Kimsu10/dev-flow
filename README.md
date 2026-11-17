@@ -29,23 +29,14 @@ Codex 작업 시작·완료·실패를 Discord에 자동 보고하려면 [DevFlo
 저장소 루트에서 예시를 복사한 뒤 `.env`의 `POSTGRES_PASSWORD`를 로컬 비밀번호로 직접 설정합니다. 실제 값을 저장소에 커밋하지 마세요.
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 docker compose up -d --wait
 ```
 
-Compose는 루트 `.env`를 읽지만 Spring Boot는 자동으로 읽지 않습니다. 같은 터미널에서 아래처럼 DB 설정을 환경변수에 전달합니다. 이 예시는 `.env`의 단순 `KEY=VALUE` 형식을 사용하며 비밀번호를 출력하지 않습니다.
+Compose는 루트 `.env`를 읽지만 Spring Boot는 자동으로 읽지 않습니다. 프로젝트 루트에서 다음 스크립트로 시작하면 현재 `.env`의 DB 설정을 읽고 이전 터미널의 DB 설정을 교체하여 실행합니다. 비밀번호와 Webhook URL은 출력하지 않습니다.
 
 ```powershell
-$dbSettings = @{}
-Get-Content .env | ForEach-Object {
-  if ($_ -match '^([A-Z_]+)=(.*)$') { $dbSettings[$matches[1]] = $matches[2] }
-}
-$env:DB_URL = "jdbc:postgresql://localhost:$($dbSettings['POSTGRES_PORT'])/$($dbSettings['POSTGRES_DB'])"
-$env:DB_USERNAME = $dbSettings['POSTGRES_USER']
-$env:DB_PASSWORD = $dbSettings['POSTGRES_PASSWORD']
-$env:SERVER_PORT = $dbSettings['SERVER_PORT']
-Set-Location backend
-.\gradlew.bat bootRun
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-backend.ps1
 ```
 
 별도 터미널:
@@ -66,13 +57,15 @@ macOS/Linux에서는 동일한 환경변수를 셸에서 설정하고 backend에
 | --- | --- | --- |
 | POSTGRES_DB / POSTGRES_USER | Compose DB 이름 / 사용자 | devflow |
 | POSTGRES_PASSWORD | Compose DB 비밀번호 | 필수 |
-| POSTGRES_PORT | 로컬 DB 노출 포트 | 5432 |
-| DB_URL | Spring JDBC URL | jdbc:postgresql://localhost:5432/devflow |
-| DB_USERNAME / DB_PASSWORD | Spring DB 인증 | 필수 |
+| POSTGRES_PORT | 로컬 DB 노출 포트 | 15432 |
+| DB_URL | Spring JDBC URL | POSTGRES_HOST/PORT/DB로 구성 (기본 jdbc:postgresql://localhost:15432/devflow) |
+| DB_USERNAME / DB_PASSWORD | Spring DB 인증 | POSTGRES_USER / POSTGRES_PASSWORD 사용 가능 |
 | SERVER_PORT | 백엔드 포트 | 8080 |
 | API_PROXY_TARGET | Vite 개발 프록시 대상 | http://localhost:8080 |
 
 백엔드 포트를 바꾸면 `frontend/.env.example`을 `frontend/.env`로 복사해 프록시 대상도 변경합니다. `VITE_*`는 브라우저에 노출되므로 비밀정보를 넣지 않습니다. 프로덕션에서는 `/api`를 백엔드로 전달하는 동일 출처 리버스 프록시가 필요합니다. `vite preview`는 개발 프록시를 제공하지 않습니다.
+
+IDE에서 Java 애플리케이션을 직접 실행하면 위 스크립트가 적용되지 않습니다. IDE 실행 설정에 DB 환경변수를 지정하거나 스크립트로 실행하세요. `.env`의 비밀번호 변경 후에는 백엔드를 재시작해야 합니다. `.env`에 별도로 DB_URL/DB_USERNAME/DB_PASSWORD가 있으면 POSTGRES_*보다 우선하므로 이전 값이 남아 있는지도 확인하세요.
 
 ## API 계약
 
