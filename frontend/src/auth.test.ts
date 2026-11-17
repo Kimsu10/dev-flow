@@ -36,3 +36,8 @@ it('stops a mutation when fetching CSRF fails', async () => {
  await expect(api('/admin/posts', 'POST', {})).rejects.toThrow()
  expect(fetcher).toHaveBeenCalledTimes(1)
 })
+
+it('recognizes post conflicts without displaying arbitrary server error text', async () => {
+ vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'POST_CONFLICT', message: 'internal detail' } }), { status: 409 })))
+ await expect(api('/admin/posts/1')).rejects.toMatchObject({ status: 409, code: 'POST_CONFLICT', message: expect.stringContaining('다른 곳에서 수정된 글') })
+})

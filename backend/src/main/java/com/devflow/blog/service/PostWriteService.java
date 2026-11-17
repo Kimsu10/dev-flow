@@ -27,17 +27,21 @@ public class PostWriteService {
  }
  public ManagedPost create(PostWrite p,Actor actor){
   validate(p);String status=status(p.status(),"DRAFT",actor.role().equals("SYSTEM"));
-  long id=mapper.create(UUID.randomUUID().toString(),new PostWrite(p.title(),p.contentMarkdown(),p.summary()==null?"":p.summary(),p.categoryId(),status),status,actor.id());
+  long id=mapper.create(UUID.randomUUID().toString(),new PostWrite(p.title(),p.contentMarkdown(),p.summary()==null?"":p.summary(),p.categoryId(),status,null),status,actor.id());
   return find(id);
  }
  public ManagedPost update(long id,PostWrite p,Actor actor){
   var old=required(mapper.lock(id));boolean agent=actor.role().equals("SYSTEM");
   if(agent && (!Objects.equals(old.authorId(),actor.id()) || !Set.of("DRAFT","IN_REVIEW").contains(old.status())))
    throw new ApiException(HttpStatus.FORBIDDEN,"FORBIDDEN","Draft is not editable by this agent");
+  checkVersion(old,p.version());
   validate(p);
   String status=!agent && p.status()==null?old.status():status(p.status(),old.status(),agent);
   mapper.update(id,p,status);return find(id);
  }
- public ManagedPost publish(long id,boolean publish){required(mapper.lock(id));if(publish)mapper.publish(id);else mapper.unpublish(id);return find(id);}
+ private void checkVersion(ManagedPost old,Long expected){
+  if(expected!=null && expected!=old.version()) throw new ApiException(HttpStatus.CONFLICT,"POST_CONFLICT","This post was changed by another editor. Reload before saving.");
+ }
+ public ManagedPost publish(long id,boolean publish,Long version){checkVersion(required(mapper.lock(id)),version);if(publish)mapper.publish(id);else mapper.unpublish(id);return find(id);}
  public void delete(long id){required(mapper.lock(id));mapper.delete(id);}
 }

@@ -94,4 +94,22 @@ class AuthPostgresIntegrationTest {
   write(admin,"PATCH","/api/admin/accounts/"+userId+"/status",java.util.Map.of("status","DISABLED")).andExpect(status().isOk());
   mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isUnauthorized());
  }
+ @Test void staleEditorCannotOverwriteOrPublishNewerPost()throws Exception {
+  var admin=login(username,password);
+  var created=data(write(admin,"POST","/api/admin/posts",body("original","DRAFT")).andExpect(status().isOk()).andReturn());
+  long id=created.path("id").asLong();
+  assertEquals(0,created.path("version").asLong());
+  var update=new java.util.HashMap<String,Object>(body("first tab","DRAFT"));update.put("version",0);
+  write(admin,"PUT","/api/admin/posts/"+id,update).andExpect(status().isOk()).andExpect(jsonPath("$.data.version").value(1));
+  update.put("title","stale second tab");
+  write(admin,"PUT","/api/admin/posts/"+id,update).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("POST_CONFLICT"));
+  mvc.perform(get("/api/admin/posts/"+id).session(admin)).andExpect(jsonPath("$.data.title").value("first tab")).andExpect(jsonPath("$.data.version").value(1));
+  write(admin,"PATCH","/api/admin/posts/"+id+"/publish?version=0",null).andExpect(status().isConflict());
+  write(admin,"PATCH","/api/admin/posts/"+id+"/publish?version=1",null).andExpect(status().isOk()).andExpect(jsonPath("$.data.version").value(2));
+  update.put("version",1);
+  write(admin,"PUT","/api/admin/posts/"+id,update).andExpect(status().isConflict());
+  write(admin,"PATCH","/api/admin/posts/"+id+"/unpublish?version=2",null).andExpect(status().isOk()).andExpect(jsonPath("$.data.version").value(3));
+  update.put("version",-1);
+  write(admin,"PUT","/api/admin/posts/"+id,update).andExpect(status().isBadRequest());
+ }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { api, auth } from '../auth'
+import { api, auth, ApiError } from '../auth'
 import { getManagedPost, type ManagedPost } from '../api/admin'
 import type { Category } from '../types/blog'
 import MarkdownEditorLayout from '../components/editor/MarkdownEditorLayout.vue'
@@ -11,9 +11,10 @@ const tags = computed(() => [...new Set(tagInput.value.split(',').map(tag => tag
 const notice = ref(''), busy = ref(false), loaded = ref(false)
 const route = useRoute(), postId = ref<number | null>(null), categories = ref<Category[]>([])
 const categoryId = ref<number | null>(null), summary = ref(''), status = ref('DRAFT')
+const version = ref<number | null>(null), conflict = ref(false)
 // Capture the key for this editor instance: route params may change before unmount.
 const storageKey = `devflow-editor-${auth.user?.id ?? 'admin'}-${route.params.id ?? 'new'}`
-const snapshot = () => JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, tags: tagInput.value })
+const snapshot = () => JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, tags: tagInput.value, version: version.value })
 const savedSnapshot = ref('')
 const dirty = computed(() => loaded.value && snapshot() !== savedSnapshot.value)
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -39,29 +40,36 @@ onMounted(async () => {
       const p = await getManagedPost(String(route.params.id))
       postId.value = p.id; title.value = p.title; markdown.value = p.contentMarkdown
       categoryId.value = p.categoryId; summary.value = p.summary; status.value = p.status
+      version.value = p.version
     }
     savedSnapshot.value = snapshot()
     loaded.value = true
   } catch { notice.value = '게시글을 불러오지 못했습니다.' }
 })
 async function save(publish = false) {
-  if (busy.value || !loaded.value) return
+  if (busy.value || !loaded.value || conflict.value) return
   if (!title.value.trim()) { notice.value = '제목을 입력하세요.'; return }
   flushDraft()
   busy.value = true
   try {
     const p = await api<ManagedPost>(postId.value ? `/admin/posts/${postId.value}` : '/admin/posts', postId.value ? 'PUT' : 'POST', {
       title: title.value, contentMarkdown: markdown.value, summary: summary.value, categoryId: categoryId.value,
+      version: version.value,
     })
     postId.value = p.id
-    if (publish) { await api(`/admin/posts/${p.id}/publish`, 'PATCH'); status.value = 'PUBLISHED' }
+    version.value = p.version
+    if (publish) { const published = await api<ManagedPost>(`/admin/posts/${p.id}/publish?version=${p.version}`, 'PATCH'); status.value = published.status; version.value = published.version }
     savedSnapshot.value = snapshot()
     pendingDraft = false
     clearTimeout(timer)
     const success = publish ? '발행했습니다.' : '서버에 저장했습니다.'
     try { localStorage.removeItem(storageKey); notice.value = success }
     catch { notice.value = `${success} 브라우저 임시저장은 삭제하지 못했습니다.` }
-  } catch (error) { notice.value = error instanceof Error ? error.message : '저장에 실패했습니다.' }
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'POST_CONFLICT') conflict.value = true
+    flushDraft()
+    notice.value = error instanceof Error ? error.message : '저장에 실패했습니다.'
+  }
   finally { busy.value = false }
 }
 function clearDraft() {
@@ -78,12 +86,14 @@ function restoreDraft() {
     if (!p || typeof p !== 'object' || typeof p.title !== 'string' || typeof p.markdown !== 'string'
       || (p.categoryId != null && (!Number.isSafeInteger(p.categoryId) || p.categoryId < 1))
       || (p.summary != null && typeof p.summary !== 'string') || (p.tags != null && typeof p.tags !== 'string')) throw new Error('Invalid draft')
+    if (p.version != null && (!Number.isSafeInteger(p.version) || p.version < 0)) throw new Error('Invalid draft version')
     title.value = p.title ?? ''; markdown.value = p.markdown ?? ''; categoryId.value = p.categoryId ?? null
     summary.value = p.summary ?? ''; tagInput.value = p.tags ?? ''
+    if (p.version != null) version.value = p.version
     notice.value = '로컬 임시저장을 복원했습니다.'
   } catch { notice.value = '임시저장을 복원하지 못했습니다.' }
 }
-watch([title, markdown, categoryId, summary, tagInput], () => {
+watch([title, markdown, categoryId, summary, tagInput, version], () => {
   if (!loaded.value) return
   clearTimeout(timer)
   pendingDraft = true
@@ -102,6 +112,7 @@ onBeforeUnmount(() => {
     <RouterLink class="back-link" to="/">← DevFlow</RouterLink>
     <h1 class="create-post-heading">{{ postId ? '게시글 검토 및 수정' : '새 글 작성' }}</h1>
     <RouterLink to="/admin">관리자 목록</RouterLink><p>{{ status }} · {{ dirty ? '서버에 저장하지 않은 변경 사항이 있습니다.' : '서버 저장 후 변경 사항이 없습니다.' }} 로컬 임시저장은 이 브라우저에 남습니다. 공용 기기에서는 사용 후 삭제하세요.</p><button :disabled="!loaded || busy" @click="restoreDraft">로컬 임시저장 복원</button><button :disabled="!loaded || busy" @click="clearDraft">로컬 임시저장 삭제</button>
+    <p v-if="conflict" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="`/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요. 이 화면에서는 덮어쓰지 않습니다.</p>
     <fieldset :inert="busy || !loaded" :disabled="busy || !loaded" style="border:0;padding:0;margin:16px 0">
     <MarkdownEditorLayout
       v-model="markdown"
@@ -110,6 +121,7 @@ onBeforeUnmount(() => {
       @save="save(false)"
       @publish="save(true)"
     >
+      <template #actions="{ uploading }"><button type="button" :disabled="uploading || conflict" @click="save(false)">임시 저장</button><button type="button" :disabled="uploading || conflict" @click="save(true)">발행</button></template>
       <template #metadata>
         <div class="post-metadata">
           <label for="post-category">카테고리<select id="post-category" v-model="categoryId"><option :value="null">미분류</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label>

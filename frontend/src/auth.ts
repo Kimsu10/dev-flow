@@ -3,7 +3,7 @@ import { router } from './router'
 export interface Profile { id: number; username: string; email: string; role: 'ADMIN' | 'USER' | 'SYSTEM'; status: string }
 export const auth = reactive<{ user: Profile | null; ready: boolean }>({ user: null, ready: false })
 let restoring: Promise<void> | undefined
-export class ApiError extends Error { status: number; constructor(status: number) { super(status === 401 ? '로그인이 필요합니다.' : status === 403 ? '접근 권한이 없거나 보안 토큰이 만료되었습니다.' : status === 409 ? '이미 사용 중인 계정이거나 데이터가 충돌합니다.' : '요청을 처리하지 못했습니다. 입력 내용을 확인하세요.'); this.status = status } }
+export class ApiError extends Error { status: number; code?: string; constructor(status: number, code?: string) { super(code === 'POST_CONFLICT' ? '다른 곳에서 수정된 글입니다. 입력 내용은 유지됩니다. 최신 글을 확인한 뒤 다시 편집하세요.' : status === 401 ? '로그인이 필요합니다.' : status === 403 ? '접근 권한이 없거나 보안 토큰이 만료되었습니다.' : status === 409 ? '이미 사용 중인 계정이거나 데이터가 충돌합니다.' : '요청을 처리하지 못했습니다. 입력 내용을 확인하세요.'); this.status = status; this.code = code } }
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
   if (method !== 'GET') {
@@ -20,7 +20,9 @@ export async function api<T>(path: string, method = 'GET', body?: unknown): Prom
       if (router.currentRoute.value.meta.admin) void router.replace('/login')
     }
     if (response.status === 403 && router.currentRoute.value.meta.admin) void router.replace('/forbidden')
-    throw new ApiError(response.status)
+    let code: string | undefined
+    try { const body = await response.json(); if (body?.error?.code === 'POST_CONFLICT') code = 'POST_CONFLICT' } catch { /* Keep the status-based error for non-JSON responses. */ }
+    throw new ApiError(response.status, code)
   }
   return (await response.json()).data as T
 }
