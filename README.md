@@ -18,6 +18,8 @@ scripts/        기존 Codex 완료 알림 호환 스크립트
 
 Codex 작업 시작·완료·실패를 Discord에 자동 보고하려면 [DevFlow Agent 실행 안내](agent/README.md)를 참고하세요. 보고는 Agent를 통해 시작한 작업에 적용됩니다.
 
+S3 이미지 기능을 위한 서울 리전·로컬 AWS 인증 설정과 실제 업로드·조회·삭제 검증 결과는 [S3 설정 안내](docs/aws-s3.md)를 참고하세요. 블로그 이미지 업로드 API는 아직 구현하지 않았습니다.
+
 ## 요구사항
 
 - Java 21, Node.js 20.19+ 또는 22.12+ (검증 환경: Node.js 24.14), npm

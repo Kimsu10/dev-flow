@@ -13,7 +13,8 @@ if (-not (Test-Path -LiteralPath $envPath)) {
 # Read only backend settings. Never evaluate .env as PowerShell or log its values.
 $settings = @{}
 $allowed = @('POSTGRES_HOST', 'POSTGRES_PORT', 'POSTGRES_DB', 'POSTGRES_USER',
-             'POSTGRES_PASSWORD', 'DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'SERVER_PORT')
+             'POSTGRES_PASSWORD', 'DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'SERVER_PORT',
+             'AWS_REGION', 'AWS_PROFILE', 'S3_BUCKET_NAME')
 foreach ($line in Get-Content -LiteralPath $envPath -Encoding UTF8) {
     if ($line.Trim() -match '^(?:export\s+)?([A-Z_]+)\s*=(.*)$') {
         $key = $matches[1]
@@ -26,6 +27,12 @@ foreach ($line in Get-Content -LiteralPath $envPath -Encoding UTF8) {
             }
             $settings[$key] = $value
         }
+    }
+}
+
+foreach ($key in @('AWS_REGION', 'AWS_PROFILE', 'S3_BUCKET_NAME')) {
+    if ($settings[$key]) {
+        [Environment]::SetEnvironmentVariable($key, $settings[$key], 'Process')
     }
 }
 

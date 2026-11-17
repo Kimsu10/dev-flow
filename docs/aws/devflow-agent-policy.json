@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowS3ImageManagement",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::devflow-images-151116838878-ap-northeast-2-an/*"
+    },
+    {
+      "Sid": "AllowS3BucketList",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::devflow-images-151116838878-ap-northeast-2-an"
+    },
+    {
+      "Sid": "AllowAWSCLILogin",
+      "Effect": "Allow",
+      "Action": [
+        "signin:AuthorizeOAuth2Access",
+        "signin:CreateOAuth2Token"
+      ],
+      "Resource": "arn:aws:signin:*:*:oauth2/public-client/*"
+    }
+  ]
+}
