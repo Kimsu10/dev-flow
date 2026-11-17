@@ -11,9 +11,28 @@ const tags = computed(() => [...new Set(tagInput.value.split(',').map(tag => tag
 const notice = ref(''), busy = ref(false), loaded = ref(false)
 const route = useRoute(), postId = ref<number | null>(null), categories = ref<Category[]>([])
 const categoryId = ref<number | null>(null), summary = ref(''), status = ref('DRAFT')
-const storageKey = computed(() => `devflow-editor-${auth.user?.id ?? 'admin'}-${route.params.id ?? 'new'}`)
+// Capture the key for this editor instance: route params may change before unmount.
+const storageKey = `devflow-editor-${auth.user?.id ?? 'admin'}-${route.params.id ?? 'new'}`
+const snapshot = () => JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, tags: tagInput.value })
+const savedSnapshot = ref('')
+const dirty = computed(() => loaded.value && snapshot() !== savedSnapshot.value)
 let timer: ReturnType<typeof setTimeout> | undefined
+let pendingDraft = false
+function flushDraft() {
+  clearTimeout(timer)
+  if (!pendingDraft || !loaded.value) return
+  try { localStorage.setItem(storageKey, snapshot()); pendingDraft = false; notice.value = '브라우저에 임시저장했습니다.' }
+  catch { notice.value = '브라우저 임시저장을 사용할 수 없습니다. 서버에 저장하세요.' }
+}
+function beforeUnload(event: BeforeUnloadEvent) {
+  flushDraft()
+  if (dirty.value) { event.preventDefault(); event.returnValue = '' }
+}
+function visibilityChanged() { if (document.visibilityState === 'hidden') flushDraft() }
 onMounted(async () => {
+  window.addEventListener('pagehide', flushDraft)
+  window.addEventListener('beforeunload', beforeUnload)
+  document.addEventListener('visibilitychange', visibilityChanged)
   try {
     categories.value = await api<Category[]>('/categories')
     if (route.params.id) {
@@ -21,13 +40,14 @@ onMounted(async () => {
       postId.value = p.id; title.value = p.title; markdown.value = p.contentMarkdown
       categoryId.value = p.categoryId; summary.value = p.summary; status.value = p.status
     }
+    savedSnapshot.value = snapshot()
     loaded.value = true
   } catch { notice.value = '게시글을 불러오지 못했습니다.' }
 })
 async function save(publish = false) {
   if (busy.value || !loaded.value) return
   if (!title.value.trim()) { notice.value = '제목을 입력하세요.'; return }
-  clearTimeout(timer)
+  flushDraft()
   busy.value = true
   try {
     const p = await api<ManagedPost>(postId.value ? `/admin/posts/${postId.value}` : '/admin/posts', postId.value ? 'PUT' : 'POST', {
@@ -35,17 +55,29 @@ async function save(publish = false) {
     })
     postId.value = p.id
     if (publish) { await api(`/admin/posts/${p.id}/publish`, 'PATCH'); status.value = 'PUBLISHED' }
-    localStorage.removeItem(storageKey.value)
-    notice.value = publish ? '발행했습니다.' : '서버에 저장했습니다.'
+    savedSnapshot.value = snapshot()
+    pendingDraft = false
+    clearTimeout(timer)
+    const success = publish ? '발행했습니다.' : '서버에 저장했습니다.'
+    try { localStorage.removeItem(storageKey); notice.value = success }
+    catch { notice.value = `${success} 브라우저 임시저장은 삭제하지 못했습니다.` }
   } catch (error) { notice.value = error instanceof Error ? error.message : '저장에 실패했습니다.' }
   finally { busy.value = false }
 }
-function clearDraft() { clearTimeout(timer); localStorage.removeItem(storageKey.value); notice.value = '로컬 임시저장을 삭제했습니다.' }
+function clearDraft() {
+  clearTimeout(timer)
+  try { localStorage.removeItem(storageKey); pendingDraft = false; notice.value = '로컬 임시저장을 삭제했습니다.' }
+  catch { notice.value = '로컬 임시저장을 삭제하지 못했습니다.' }
+}
 function restoreDraft() {
+  if (!loaded.value || busy.value) return
   try {
-    const raw = localStorage.getItem(storageKey.value)
+    const raw = localStorage.getItem(storageKey)
     if (!raw) { notice.value = '복원할 임시저장이 없습니다.'; return }
     const p = JSON.parse(raw)
+    if (!p || typeof p !== 'object' || typeof p.title !== 'string' || typeof p.markdown !== 'string'
+      || (p.categoryId != null && (!Number.isSafeInteger(p.categoryId) || p.categoryId < 1))
+      || (p.summary != null && typeof p.summary !== 'string') || (p.tags != null && typeof p.tags !== 'string')) throw new Error('Invalid draft')
     title.value = p.title ?? ''; markdown.value = p.markdown ?? ''; categoryId.value = p.categoryId ?? null
     summary.value = p.summary ?? ''; tagInput.value = p.tags ?? ''
     notice.value = '로컬 임시저장을 복원했습니다.'
@@ -54,19 +86,22 @@ function restoreDraft() {
 watch([title, markdown, categoryId, summary, tagInput], () => {
   if (!loaded.value) return
   clearTimeout(timer)
-  timer = setTimeout(() => {
-    try { localStorage.setItem(storageKey.value, JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, tags: tagInput.value })); notice.value = '브라우저에 임시저장했습니다.' }
-    catch { notice.value = '브라우저 임시저장을 사용할 수 없습니다. 서버에 저장하세요.' }
-  }, 800)
+  pendingDraft = true
+  timer = setTimeout(flushDraft, 800)
+}, { flush: 'sync' })
+onBeforeUnmount(() => {
+  flushDraft()
+  window.removeEventListener('pagehide', flushDraft)
+  window.removeEventListener('beforeunload', beforeUnload)
+  document.removeEventListener('visibilitychange', visibilityChanged)
 })
-onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
   <main>
     <RouterLink class="back-link" to="/">← DevFlow</RouterLink>
     <h1 class="create-post-heading">{{ postId ? '게시글 검토 및 수정' : '새 글 작성' }}</h1>
-    <RouterLink to="/admin">관리자 목록</RouterLink><p>{{ status }} · 로컬 임시저장은 이 브라우저에 남습니다. 공용 기기에서는 사용 후 삭제하세요.</p><button @click="restoreDraft">로컬 임시저장 복원</button><button @click="clearDraft">로컬 임시저장 삭제</button>
+    <RouterLink to="/admin">관리자 목록</RouterLink><p>{{ status }} · {{ dirty ? '서버에 저장하지 않은 변경 사항이 있습니다.' : '서버 저장 후 변경 사항이 없습니다.' }} 로컬 임시저장은 이 브라우저에 남습니다. 공용 기기에서는 사용 후 삭제하세요.</p><button :disabled="!loaded || busy" @click="restoreDraft">로컬 임시저장 복원</button><button :disabled="!loaded || busy" @click="clearDraft">로컬 임시저장 삭제</button>
     <fieldset :inert="busy || !loaded" :disabled="busy || !loaded" style="border:0;padding:0;margin:16px 0">
     <MarkdownEditorLayout
       v-model="markdown"
