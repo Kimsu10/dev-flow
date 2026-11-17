@@ -1,14 +1,20 @@
 ﻿// @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, type App as VueApp } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { EditorView } from '@codemirror/view'
+import { routes } from './router'
 import App from './App.vue'
 let app: VueApp | undefined
-function mountApp() {
+async function mountApp(path = '/') {
   const host = document.createElement('div')
   document.body.append(host)
-  app = createApp(App)
+  const router = createRouter({ history: createMemoryHistory(), routes })
+  await router.push(path)
+  await router.isReady()
+  app = createApp(App).use(router)
   app.mount(host)
-  return host
+  return { host, router }
 }
 afterEach(() => {
   app?.unmount()
@@ -21,7 +27,7 @@ it.each([
   [200, {}, '연결할 수 없습니다'],
 ])('renders HTTP %s response', async (status, body, message) => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })))
-  const host = mountApp()
+  const { host } = await mountApp()
   expect(host.querySelector('button')?.disabled).toBe(true)
   await vi.waitFor(() => expect(host.querySelector('[role="status"]')?.textContent).toContain(message))
 })
@@ -29,9 +35,37 @@ it('retries after network failure', async () => {
   const fetchMock = vi.fn().mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'UP', database: 'UP' })))
   vi.stubGlobal('fetch', fetchMock)
-  const host = mountApp()
+  const { host } = await mountApp()
   await vi.waitFor(() => expect(host.textContent).toContain('연결할 수 없습니다'))
   host.querySelector('button')?.click()
   await vi.waitFor(() => expect(host.textContent).toContain('정상 동작'))
   expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+it('keeps the editor off home and navigates to a blank create page', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'UP', database: 'UP' }))))
+  const { host, router } = await mountApp()
+  expect(host.querySelector('.cm-editor')).toBeNull()
+  const link = host.querySelector<HTMLAnchorElement>('a[href="/posts/create"]')!
+  link.click()
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/posts/create'))
+  await vi.waitFor(() => expect(host.querySelector('.cm-placeholder')?.textContent).toBe('글을 작성하세요'))
+  const editor = EditorView.findFromDOM(host.querySelector<HTMLElement>('.cm-editor')!)!
+  expect(editor.state.doc.toString()).toBe('')
+  expect(host.querySelector('.md-preview article')?.innerHTML).toBe('')
+  expect(host.querySelector<HTMLInputElement>('.md-title input')?.value).toBe('')
+})
+it('supports direct create navigation and category/tag input without calling APIs', async () => {
+  const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock)
+  const { host } = await mountApp('/posts/create')
+  const category = host.querySelector<HTMLInputElement>('#post-category')!
+  const tags = host.querySelector<HTMLInputElement>('#post-tags')!
+  expect(category.value).toBe(''); expect(tags.value).toBe('')
+  category.value = 'Frontend'; category.dispatchEvent(new Event('input'))
+  tags.value = 'Vue, TypeScript, Vue, '; tags.dispatchEvent(new Event('input'))
+  await vi.waitFor(() => expect(Array.from(host.querySelectorAll('.post-tags li')).map(el => el.textContent)).toEqual(['#Vue', '#TypeScript']))
+  const editor = EditorView.findFromDOM(host.querySelector<HTMLElement>('.cm-editor')!)!
+  editor.dispatch({ changes: { from: 0, insert: '# 새 글' } })
+  await vi.waitFor(() => expect(host.querySelector('.cm-placeholder')).toBeNull())
+  expect(category.value).toBe('Frontend')
+  expect(fetchMock).not.toHaveBeenCalled()
 })
