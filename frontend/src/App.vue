@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import MarkdownEditorLayout from './components/editor/MarkdownEditorLayout.vue'
+const title = ref('')
+const markdown = ref("# DevFlow Markdown Editor\n\n개발의 흐름을 기록하세요. **Markdown**으로 시작해 보세요.\n\n- [x] 실시간 미리보기\n- [ ] 새로운 글 작성\n\n```typescript\nconst message: string = 'Hello, DevFlow'\n```\n")
+const editorNotice = ref('')
 const state = ref<'loading' | 'up' | 'down' | 'error'>('loading')
 const labels = {
   loading: '서버 상태 확인 중…',
@@ -31,5 +35,7 @@ onMounted(checkHealth)
       <p role="status" :class="state">{{ labels[state] }}</p>
       <button :disabled="state === 'loading'" @click="checkHealth">다시 확인</button>
     </section>
+    <MarkdownEditorLayout v-model="markdown" v-model:title="title" @save="editorNotice = '임시 저장 API는 아직 연결되지 않았습니다.'" @publish="editorNotice = '발행 API는 아직 연결되지 않았습니다.'" />
+    <p v-if="editorNotice" role="status">{{ editorNotice }}</p>
   </main>
 </template>
