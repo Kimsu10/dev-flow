@@ -2,14 +2,14 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { basicSetup } from 'codemirror'
 import { Compartment, EditorState, StateEffect, Transaction } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorView, keymap, placeholder } from '@codemirror/view'
 import { indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { formatSelection } from './format'
 import { imageMarkdown, validateImage } from './image'
 import type { Format, UploadImage } from './types'
-const props = withDefaults(defineProps<{ modelValue: string; uploadImage?: UploadImage; maxImageBytes?: number }>(), { maxImageBytes: 5 * 1024 * 1024 })
+const props = withDefaults(defineProps<{ modelValue: string; placeholder?: string; uploadImage?: UploadImage; maxImageBytes?: number }>(), { placeholder: '글을 작성하세요', maxImageBytes: 5 * 1024 * 1024 })
 const emit = defineEmits<{ 'update:modelValue': [value: string]; scroll: [ratio: number]; uploading: [busy: boolean] }>()
 const host = ref<HTMLElement>(), picker = ref<HTMLInputElement>()
 const status = ref(''), busy = ref(false)
@@ -48,7 +48,7 @@ async function upload(files: File[], position?: number) {
 }
 onMounted(() => {
   view = new EditorView({ parent: host.value, state: EditorState.create({ doc: props.modelValue, extensions: [
-    basicSetup, markdown({ codeLanguages: languages }), EditorView.lineWrapping, EditorView.theme({}, { dark: true }),
+    basicSetup, markdown({ codeLanguages: languages }), placeholder(props.placeholder), EditorView.lineWrapping, EditorView.theme({}, { dark: true }),
     EditorView.contentAttributes.of({ 'aria-label': 'Markdown 원문' }),
     keymap.of([{ key: 'Mod-b', run: () => { format('bold'); return true } }, { key: 'Mod-i', run: () => { format('italic'); return true } }, indentWithTab]),
     EditorView.updateListener.of(update => { if (update.docChanged) emit('update:modelValue', update.state.doc.toString()) }),

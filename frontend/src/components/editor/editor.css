@@ -24,6 +24,7 @@
 .md-codemirror .cm-editor { background: var(--md-bg); color: var(--md-text); font-size: 14px; }
 .md-codemirror .cm-scroller { overflow: auto; font-family: Consolas, monospace; line-height: 1.7; }
 .md-codemirror .cm-content { padding: 20px 0; caret-color: #fff; }
+.md-codemirror .cm-placeholder { color: var(--md-muted); }
 .md-codemirror .cm-gutters { background: var(--md-panel); color: var(--md-muted); border-right: 1px solid var(--md-border); }
 .md-codemirror .cm-activeLine, .md-codemirror .cm-activeLineGutter { background: #9baaff12; }
 .md-codemirror .cm-selectionBackground, .md-codemirror .cm-focused .cm-selectionBackground { background: #465b88 !important; }

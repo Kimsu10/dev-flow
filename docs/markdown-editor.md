@@ -2,8 +2,10 @@
 
 ## 기존 구성과 범위
 
-- Vue 3.5, Vite 8, TypeScript 6. 기존 UI 라이브러리, Router, Pinia 없음.
-- 기존 App의 `/api/health` 상태 확인 기능을 유지하고 작성 데모 추가.
+- Vue 3.5, Vite 8, TypeScript 6. UI 라이브러리와 Pinia는 없으며 페이지 분리를 위해 Vue Router 4를 추가.
+- `/`는 HomeView의 기존 `/api/health` 상태 확인과 글 작성 링크, `/posts/create`는 PostCreateView의 작성 화면.
+- 작성 페이지는 지연 로딩하며 제목·본문·카테고리·태그가 모두 빈 값으로 시작한다. 본문의 `글을 작성하세요`는 실제 원문에 포함되지 않는 placeholder다.
+- 카테고리는 자유 입력, 태그는 쉼표 구분 입력이며 공백·빈 항목과 중복을 제외한 태그를 표시한다. 메타데이터는 페이지 상태로 관리하고 `metadata` 슬롯으로 배치하여 에디터의 독립성을 유지한다. 서버 저장은 아직 연결하지 않았다.
 - Spring Boot 3.5 / Java 21의 health Controller → Service → MyBatis Mapper 유지.
 - 환경변수 기반 PostgreSQL 연결, 개발 `/api` Vite 프록시 유지.
 - 이미지 업로드 및 게시글 API가 없으므로 이번 변경은 프런트엔드만 구현.
@@ -65,7 +67,11 @@ function publish() {
 
 업로드 함수를 생략하면 이미지 버튼은 URL 문법을 삽입하고 파일 연동 안내를 표시한다. 파일 드롭·붙여넣기는 업로더 미연결 안내를 표시한다. SVG는 허용하지 않는다. 파일 크기 기본 제한은 5MB이며 PNG/JPEG/GIF/WebP의 확장자, MIME과 시작 시그니처를 확인한다. 이 검증은 완전한 이미지 디코딩 검증이 아니므로 향후 서버에서도 크기 제한, 이미지 디코딩/재인코딩, MIME 검증, 안전한 저장 키와 접근 제어가 필요하다. 실제 파일 저장소와 API 경로는 아직 결정하지 않았다.
 
-`actions` 슬롯으로 기본 저장/발행 버튼을 교체할 수 있다. 슬롯 props의 `uploading`을 사용해 부모 버튼을 비활성화할 수 있다. 에디터 내부에는 저장/발행 API 호출이나 자동 저장이 없다. App 데모의 버튼은 API 미연결 안내만 표시한다.
+`actions` 슬롯으로 기본 저장/발행 버튼을 교체할 수 있다. 슬롯 props의 `uploading`을 사용해 부모 버튼을 비활성화할 수 있다. 에디터 내부에는 저장/발행 API 호출이나 자동 저장이 없다. 작성 페이지의 버튼은 API 미연결 안내만 표시한다. 원문 placeholder는 `placeholder` prop으로 변경할 수 있다.
+
+## URL 직접 접속과 배포
+
+개발 서버에서 `http://localhost:5173/posts/create`에 직접 접속할 수 있다. Vue Router의 HTML5 history를 사용하므로 배포 서버는 `/posts/create` 등 프런트엔드 경로를 `index.html`로 fallback해야 한다. Nginx라면 프런트엔드 location에서 `try_files $uri $uri/ /index.html;`을 사용한다. `/api`는 별도 location에서 기존 동일 출처 백엔드 프록시를 유지한다. 실제 배포 설정은 이번 변경에 포함되지 않는다.
 
 ## 제공 기능
 
@@ -83,4 +89,4 @@ function publish() {
 
 백엔드: `.\gradlew.bat build`. 현재 통합 테스트는 H2 PostgreSQL 모드를 사용하므로 PostgreSQL 실연동을 대신하지 않는다. 이번 실행에서는 Docker CLI를 찾지 못해 Docker/PostgreSQL 실연동을 검증하지 못했다. 브라우저 연결 호스트도 사용할 수 없어 실제 화면과 모바일/키보드/스크롤 시각 검수는 미완료다.
 
-다음 단계는 실제 브라우저 검수, 이미지 저장 방식과 업로드 API 계약 확정, 부모 어댑터 연결이다. 이후 별도 범위에서 게시글 CRUD/임시 저장/인증/발행을 구현한다. 초기 번들은 CodeMirror 및 Markdown 렌더러를 포함하므로 Vite의 500kB 경고가 발생하며, 실제 작성 라우트 도입 시 지연 로딩을 검토한다.
+다음 단계는 실제 브라우저 검수, 이미지 저장 방식과 업로드 API 계약 확정, 부모 어댑터 연결이다. 이후 별도 범위에서 게시글 CRUD/임시 저장/인증/발행을 구현한다. 작성 라우트는 지연 로딩하여 메인 접속 시 에디터를 로딩하지 않는다.
