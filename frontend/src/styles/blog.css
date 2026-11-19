@@ -7,7 +7,8 @@
 .brand-dot { color: #648975; }
 .blog-header nav { display: flex; gap: 30px; align-items: center; font-size: 13px; font-weight: 550; }
 .blog-header nav .write-link { color: #737373; }
-.write-link span { margin-left: 5px; }
+.blog-shell .outlined-link { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid #d4d4d4; border-radius: 6px; background: #fff; line-height: 1.4; white-space: nowrap; }
+.blog-shell .outlined-link:hover { border-color: #737373; background: #f6f7f8; color: #171717; }
 main.blog-page { width: 100%; margin: 0; padding: 0; }
 .blog-intro { padding: 72px 0 42px; }
 .blog-eyebrow { color: #7c7c7c; font-size: 10px; letter-spacing: .2em; font-weight: 550; margin: 0 0 13px; }
@@ -24,7 +25,6 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 .category-heading h2 { font-size: 23px; letter-spacing: -.65px; font-weight: 650; margin: 0; }
 .category-heading > a { color: #737373; font-size: 12px; white-space: nowrap; }
 .category-heading > a:hover { color: #171717; }
-.category-heading > a span { margin-left: 6px; }
 .post-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 26px; row-gap: 42px; }
 .post-card { min-width: 0; }
 .post-card > a { display: block; height: 100%; }
@@ -37,7 +37,7 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 .post-card-title { font-size: 18px; line-height: 1.5; font-weight: 650; letter-spacing: -.45px; margin: 9px 0 7px; }
 .post-card-summary { font-size: 13px; color: #737373; line-height: 1.75; letter-spacing: -.15px; margin: 0; }
 .post-card-title, .post-card-summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.blog-footer { margin-top: 70px; padding: 25px 0 35px; border-top: 1px solid #ededed; display: flex; justify-content: space-between; gap: 16px; font-size: 11px; color: #858585; }
+.blog-footer { margin-top: 70px; padding: 25px 0 35px; border-top: 1px solid #ededed; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 11px; color: #858585; }
 .blog-footer a:hover { color: #171717; }
 .blog-message { padding: 90px 16px; text-align: center; color: #737373; }
 .blog-message h2 { font-size: 20px; font-weight: 600; color: #333; }
