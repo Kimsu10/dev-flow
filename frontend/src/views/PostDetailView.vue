@@ -6,6 +6,7 @@ import BlogShell from '../components/blog/BlogShell.vue'
 import RequestState from '../components/blog/RequestState.vue'
 import ThumbnailImage from '../components/blog/ThumbnailImage.vue'
 import PostCard from '../components/blog/PostCard.vue'
+import AiSources from '../components/blog/AiSources.vue'
 import { renderArticle } from '../components/editor/markdown'
 import { getPost } from '../api/blog'
 import { useBlogResource } from '../composables/useBlogResource'
@@ -39,6 +40,7 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value && Str
     <RequestState :loading="loading" :error="error" @retry="reload" />
     <article v-if="!loading && !error && data" class="post-detail">
       <header class="post-detail-header">
+        <aside v-if="data.aiAttribution" class="ai-disclosure" aria-label="AI 작성 안내"><strong>AI 조사 초안을 바탕으로 작성자가 검토·편집한 글입니다.</strong><p>원래 질문: {{ data.aiAttribution.question }}</p></aside>
         <RouterLink v-if="data.post.category" class="detail-category" :to="{ name: 'post-list', query: { categoryId: data.post.category.id } }">{{ data.post.category.name }}</RouterLink>
         <h1>{{ data.post.title }}</h1><p class="post-detail-summary">{{ data.post.summary }}</p>
         <time class="post-date" :datetime="data.post.publishedAt || data.post.createdAt">{{ date }}</time>
@@ -50,6 +52,7 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value && Str
         <nav aria-label="본문 목차"><ol><li v-for="heading in article.headings" :key="heading.id" :class="{ 'toc-nested': heading.level > 2 }"><a :href="`#${heading.id}`">{{ heading.text }}</a></li></ol></nav>
       </details>
       <div ref="body" class="post-body" v-html="article.html" />
+      <AiSources v-if="data.aiAttribution" :sources="data.aiAttribution.sources" />
     </article>
     <section v-if="!loading && !error && data?.relatedPosts?.length" class="related-posts" aria-labelledby="related-title">
       <h2 id="related-title">같은 카테고리의 다른 글</h2>

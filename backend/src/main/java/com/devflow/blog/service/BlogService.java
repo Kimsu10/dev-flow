@@ -15,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class BlogService {
     private final BlogMapper mapper;
-    public BlogService(BlogMapper mapper) { this.mapper = mapper; }
+    private final AiDraftService ai;
+    public BlogService(BlogMapper mapper, AiDraftService ai) { this.mapper = mapper; this.ai = ai; }
 
     public Home home() {
         var grouped = new LinkedHashMap<Long, CategorySection>();
@@ -50,6 +51,6 @@ public class BlogService {
         }
         var related = row.categoryId() == null ? List.<PostSummary>of()
             : mapper.findRelatedPosts(row.categoryId(), id).stream().map(PostSummary::from).toList();
-        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related);
+        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related, ai.attributionForPost(id));
     }
 }

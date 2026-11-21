@@ -179,3 +179,14 @@ it('offers API-backed related posts and replaces recommendations when navigating
   expect(host.querySelector('.related-posts')).toBeNull()
   expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0 })
 })
+
+it('shows applied AI disclosure above the title and sources below the body without interpreting question HTML', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(response({ post, contentMarkdown: '# Body', relatedPosts: [], aiAttribution: { draftId: 'id', question: '<img src=x onerror=alert(1)> 원래 질문', sources: [{ title: '실제 출처', url: 'https://example.com/docs' }] } }))))
+  const { host } = await mount('/posts/123')
+  await vi.waitFor(() => expect(host.querySelector('.ai-disclosure')).not.toBeNull())
+  expect(host.querySelector('.ai-disclosure')?.textContent).toContain('원래 질문')
+  expect(host.querySelector('.ai-disclosure img')).toBeNull()
+  expect(host.querySelector('.ai-disclosure')!.compareDocumentPosition(host.querySelector('h1')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(host.querySelector('.post-body')!.compareDocumentPosition(host.querySelector('.ai-sources')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(host.querySelector('.ai-sources a')?.getAttribute('href')).toBe('https://example.com/docs')
+})

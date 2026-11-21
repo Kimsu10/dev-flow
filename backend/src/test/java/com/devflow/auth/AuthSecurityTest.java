@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@SpringBootTest(properties={"spring.flyway.enabled=false","spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.datasource.username=sa","spring.datasource.password="})
+@SpringBootTest(properties={"spring.flyway.enabled=false","spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.datasource.username=sa","spring.datasource.password=","OPENAI_API_KEY="})
 @AutoConfigureMockMvc(print=MockMvcPrint.NONE)
 class AuthSecurityTest {
  @Autowired MockMvc mvc;
@@ -66,5 +66,12 @@ class AuthSecurityTest {
  }
  @Test void wrongPasswordFailsWithoutTrustingRole() throws Exception {
   mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json").content("{\"username\":\"owner\",\"password\":\"incorrect\",\"role\":\"ADMIN\"}")) .andExpect(status().isUnauthorized());
+ }
+ @Test void missingAiCredentialsReturnExplicitUnavailableWhileManualAdminQueriesStillWork() throws Exception {
+  var session=login();
+  mvc.perform(post("/api/admin/ai-drafts").session(session).with(csrf()).contentType("application/json")
+    .content("{\"question\":\"Explain transaction isolation\",\"publicQuestionAccepted\":true}"))
+    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error.code").value("AI_NOT_CONFIGURED"));
+  mvc.perform(get("/api/admin/posts").session(session)).andExpect(status().isOk());
  }
 }

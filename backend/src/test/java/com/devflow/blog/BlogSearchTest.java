@@ -10,7 +10,7 @@ import static org.mockito.Mockito.*;
 
 class BlogSearchTest {
     private final BlogMapper mapper = mock(BlogMapper.class);
-    private final BlogService service = new BlogService(mapper);
+    private final BlogService service = new BlogService(mapper, mock(com.devflow.blog.service.AiDraftService.class));
 
     @Test void literalSearchUsesSameFilterForCountAndPage() {
         when(mapper.findPosts(7L, 9, 18L, "%100!%!_!!%")).thenReturn(List.of());

@@ -12,8 +12,8 @@ vi.mock('../auth', () => ({ api: vi.fn(), auth: { user: { id: 5, role: 'ADMIN' }
 } }))
 vi.mock('../components/editor/MarkdownEditorLayout.vue', async () => {
   const { defineComponent, h } = await import('vue')
-  return { default: defineComponent({ props: ['modelValue', 'title'], emits: ['update:title', 'save', 'publish'], setup(props, { emit }) {
-    return () => h('div', [h('input', { class: 'test-title', value: props.title, onInput: (e: Event) => emit('update:title', (e.target as HTMLInputElement).value) }), h('button', { class: 'test-save', onClick: () => emit('save') }, 'Save')])
+  return { default: defineComponent({ props: ['modelValue', 'title'], emits: ['update:title', 'update:modelValue', 'save', 'publish'], setup(props, { emit }) {
+    return () => h('div', [h('input', { class: 'test-title', value: props.title, onInput: (e: Event) => emit('update:title', (e.target as HTMLInputElement).value) }), h('textarea', { class: 'test-markdown', value: props.modelValue, onInput: (e: Event) => emit('update:modelValue', (e.target as HTMLTextAreaElement).value) }), h('button', { class: 'test-save', onClick: () => emit('save') }, 'Save')])
   } }) }
 })
 let app: VueApp | undefined
@@ -92,4 +92,39 @@ it('restores the draft base version so stale restored content cannot bypass conf
   await nextTick()
   host.querySelector<HTMLButtonElement>('.test-save')!.click()
   await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ version: 1 })))
+})
+
+it('retains applied AI question and sources through edits, local restore and server reload', async () => {
+  const draft = { id: '11111111-1111-4111-8111-111111111111', question: '적용한 원래 질문', contentMarkdown: '# AI 초안', sources: [{ title: '자료', url: 'https://example.com/docs' }] }
+  const { host } = await mount()
+  vi.mocked(api).mockResolvedValueOnce(draft)
+  const findButton = (label: string) => Array.from(host.querySelectorAll('button')).find(b => b.textContent === label)!
+  findButton('AI 글 작성').click(); await nextTick()
+  const question = host.querySelector<HTMLTextAreaElement>('#ai-question')!
+  question.value = draft.question; question.dispatchEvent(new Event('input'))
+  const consent = host.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+  consent.checked = true; consent.dispatchEvent(new Event('change')); await nextTick()
+  host.querySelector('.ai-draft-panel form')!.dispatchEvent(new Event('submit'))
+  await vi.waitFor(() => expect(host.querySelector('.ai-draft-result')).not.toBeNull())
+  expect(host.querySelector<HTMLTextAreaElement>('.test-markdown')?.value).toBe('Body')
+  findButton('편집기에 적용').click(); await nextTick()
+  const body = host.querySelector<HTMLTextAreaElement>('.test-markdown')!
+  body.value = '# 작성자가 편집한 본문'; body.dispatchEvent(new Event('input'))
+  window.dispatchEvent(new Event('pagehide'))
+  const local = localStorage.getItem('devflow-editor-5-1')!
+  expect(JSON.parse(local).aiAttribution.question).toBe(draft.question)
+  app!.unmount(); app = undefined; document.body.innerHTML = ''
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : post(1))
+  const restored = await mount()
+  Array.from(restored.host.querySelectorAll('button')).find(b => b.textContent === '로컬 임시저장 복원')!.click(); await nextTick()
+  expect(restored.host.querySelector('.applied-ai')?.textContent).toContain(draft.question)
+  expect(restored.host.querySelector<HTMLTextAreaElement>('.test-markdown')?.value).toBe('# 작성자가 편집한 본문')
+  restored.host.querySelector<HTMLButtonElement>('.test-save')!.click()
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ aiDraftId: draft.id, contentMarkdown: '# 작성자가 편집한 본문' })))
+  await vi.waitFor(() => expect(restored.host.textContent).toContain('서버에 저장했습니다.'))
+  app!.unmount(); app = undefined; document.body.innerHTML = ''
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : path.startsWith('/admin/ai-drafts/') ? draft : { ...post(1), contentMarkdown: '# 작성자가 편집한 본문', aiDraftId: draft.id })
+  const reloaded = await mount()
+  expect(reloaded.host.querySelector('.applied-ai')?.textContent).toContain(draft.question)
+  expect(reloaded.host.querySelector('.applied-ai a')?.getAttribute('href')).toBe(draft.sources[0]!.url)
 })

@@ -62,7 +62,7 @@ it('supports direct create navigation and category/tag input while loading categ
   const { host } = await mountApp('/posts/create')
   const category = host.querySelector<HTMLInputElement>('#post-category')!
   const tags = host.querySelector<HTMLInputElement>('#post-tags')!
-  expect(category.value).toBe('미분류'); expect(tags.value).toBe('')
+  expect(category.value).toBe(''); expect(host.querySelector('#post-category option')?.textContent).toBe('미분류'); expect(tags.value).toBe('')
   tags.value = 'Vue, TypeScript, Vue, '; tags.dispatchEvent(new Event('input'))
   await vi.waitFor(() => expect(Array.from(host.querySelectorAll('.post-tags li')).map(el => el.textContent)).toEqual(['#Vue', '#TypeScript']))
   const editor = EditorView.findFromDOM(host.querySelector<HTMLElement>('.cm-editor')!)!
