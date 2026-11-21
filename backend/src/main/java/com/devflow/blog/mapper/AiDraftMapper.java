@@ -17,4 +17,9 @@ public interface AiDraftMapper {
         FROM blog.ai_drafts d JOIN blog.posts p ON p.ai_draft_id=d.id WHERE p.id=#{postId}
         """)
     AiDraftRow forPost(long postId);
+    @Select("""
+        SELECT EXISTS(SELECT 1 FROM blog.posts WHERE ai_draft_id=CAST(#{id} AS uuid)
+            AND deleted_at IS NULL AND (author_id=#{actorId} OR (visibility='PUBLIC' AND status='PUBLISHED' AND published_at<=CURRENT_TIMESTAMP)))
+        """)
+    boolean readableReference(@Param("id") String id,@Param("actorId") long actorId);
 }

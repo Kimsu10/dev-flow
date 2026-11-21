@@ -10,7 +10,7 @@ async function submit() {
   try {
     await login(username.value, password.value)
     const target = route.query.redirect
-    await router.replace(auth.user?.role === 'ADMIN' ? (typeof target === 'string' && /^\/(?:admin(?:\/|$)|posts\/create$)/.test(target) ? target : '/admin') : '/')
+    await router.replace(auth.user?.role === 'ADMIN' ? (typeof target === 'string' && /^\/(?:admin(?:\/|$)|posts\/create$|my-posts$)/.test(target) ? target : '/admin') : '/')
   } catch { message.value = '로그인에 실패했습니다. 아이디 또는 이메일과 비밀번호를 확인하세요.' }
   finally { password.value = ''; busy.value = false }
 }

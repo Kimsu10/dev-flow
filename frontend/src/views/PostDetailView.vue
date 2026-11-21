@@ -31,7 +31,7 @@ watch(() => route.params.id, async () => {
   await nextTick()
   if (!route.hash && !error.value && String(data.value?.post.id) === String(route.params.id)) window.scrollTo({ top: 0, left: 0 })
 })
-usePageView(computed(() => !loading.value && !error.value && !!data.value && String(data.value.post.id) === String(route.params.id)), () => data.value?.post.id)
+usePageView(computed(() => !loading.value && !error.value && !!data.value && data.value.visibility !== 'PRIVATE' && String(data.value.post.id) === String(route.params.id)), () => data.value?.post.id)
 </script>
 
 <template>
@@ -40,6 +40,7 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value && Str
     <RequestState :loading="loading" :error="error" @retry="reload" />
     <article v-if="!loading && !error && data" class="post-detail">
       <header class="post-detail-header">
+        <p v-if="data.visibility === 'PRIVATE'" class="private-post-notice" role="status">비공개 글 · 작성자에게만 표시됩니다.</p>
         <aside v-if="data.aiAttribution" class="ai-disclosure" aria-label="AI 작성 안내"><strong>AI 조사 초안을 바탕으로 작성자가 검토·편집한 글입니다.</strong><p>원래 질문: {{ data.aiAttribution.question }}</p></aside>
         <RouterLink v-if="data.post.category" class="detail-category" :to="{ name: 'post-list', query: { categoryId: data.post.category.id } }">{{ data.post.category.name }}</RouterLink>
         <h1>{{ data.post.title }}</h1><p class="post-detail-summary">{{ data.post.summary }}</p>

@@ -1,4 +1,6 @@
 package com.devflow.blog.dto;
 import jakarta.validation.constraints.*;
+import java.time.OffsetDateTime;
 public record PostWrite(@NotBlank @Size(max=200) String title,@NotNull @Size(max=1000000) String contentMarkdown,
- @Size(max=500) String summary,@Positive Long categoryId,String status,@PositiveOrZero Long version,@Size(max=36) String aiDraftId) {}
+ @Size(max=500) String summary,@Positive Long categoryId,String status,@PositiveOrZero Long version,@Size(max=36) String aiDraftId,
+ OffsetDateTime publishedAt,@Pattern(regexp="PUBLIC|PRIVATE") String visibility) {}

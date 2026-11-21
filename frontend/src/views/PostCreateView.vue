@@ -9,6 +9,8 @@ import CategoryInput from '../components/editor/CategoryInput.vue'
 import AiDraftPanel from '../components/editor/AiDraftPanel.vue'
 import AiSources from '../components/blog/AiSources.vue'
 import { validAttribution, type AiAttribution, type AiDraft } from '../types/ai'
+import PublicationFields from '../components/editor/PublicationFields.vue'
+import { toLocalDateTime, validPublicationInput } from '../utils/publication'
 
 const title = ref(''), markdown = ref(''), tagInput = ref('')
 const tags = computed(() => [...new Set(tagInput.value.split(',').map(tag => tag.trim()).filter(Boolean))])
@@ -16,6 +18,8 @@ const notice = ref(''), busy = ref(false), loaded = ref(false)
 const route = useRoute(), postId = ref<number | null>(null), categories = ref<Category[]>([])
 const categoryId = ref<number | null>(null), summary = ref(''), status = ref('DRAFT')
 const version = ref<number | null>(null), conflict = ref(false)
+const visibility = ref<'PUBLIC' | 'PRIVATE'>('PRIVATE'), publishedInput = ref('')
+let originalPublishedInput = ''
 const aiAttribution = ref<AiAttribution | null>(null)
 function addCategory(category: Category) {
   categories.value = [...categories.value.filter(c => c.id !== category.id), category].sort((a,b) => a.sortOrder - b.sortOrder || a.id - b.id)
@@ -27,7 +31,7 @@ function applyAiDraft(draft: AiDraft) {
 }
 // Capture the key for this editor instance: route params may change before unmount.
 const storageKey = `devflow-editor-${auth.user?.id ?? 'admin'}-${route.params.id ?? 'new'}`
-const snapshot = () => JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, tags: tagInput.value, version: version.value, aiAttribution: aiAttribution.value })
+const snapshot = () => JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, tags: tagInput.value, version: version.value, aiAttribution: aiAttribution.value, visibility: visibility.value, publishedInput: publishedInput.value })
 const savedSnapshot = ref('')
 const dirty = computed(() => loaded.value && snapshot() !== savedSnapshot.value)
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -54,6 +58,9 @@ onMounted(async () => {
       postId.value = p.id; title.value = p.title; markdown.value = p.contentMarkdown
       categoryId.value = p.categoryId; summary.value = p.summary; status.value = p.status
       version.value = p.version
+      visibility.value = p.visibility || 'PUBLIC'
+      publishedInput.value = toLocalDateTime(p.publishedAt)
+      originalPublishedInput = publishedInput.value
       if (p.aiDraftId) {
         const draft = await api<AiDraft>(`/admin/ai-drafts/${p.aiDraftId}`)
         aiAttribution.value = { draftId: draft.id, question: draft.question, sources: draft.sources }
@@ -66,6 +73,7 @@ onMounted(async () => {
 async function save(publish = false) {
   if (busy.value || !loaded.value || conflict.value) return
   if (!title.value.trim()) { notice.value = '제목을 입력하세요.'; return }
+  if (!validPublicationInput(publishedInput.value)) { notice.value = '게시 일시를 확인하세요.'; return }
   flushDraft()
   busy.value = true
   try {
@@ -73,14 +81,20 @@ async function save(publish = false) {
       title: title.value, contentMarkdown: markdown.value, summary: summary.value, categoryId: categoryId.value,
       version: version.value,
       aiDraftId: aiAttribution.value?.draftId ?? null,
+      visibility: publish ? 'PUBLIC' : visibility.value,
+      // Omit an unchanged input to preserve the original database timestamp exactly.
+      publishedAt: publishedInput.value && publishedInput.value !== originalPublishedInput ? new Date(publishedInput.value).toISOString() : undefined,
     })
     postId.value = p.id
     version.value = p.version
-    if (publish) { const published = await api<ManagedPost>(`/admin/posts/${p.id}/publish?version=${p.version}`, 'PATCH'); status.value = published.status; version.value = published.version }
+    status.value = p.status
+    visibility.value = p.visibility || visibility.value
+    if (p.publishedAt) publishedInput.value = toLocalDateTime(p.publishedAt)
+    originalPublishedInput = publishedInput.value
     savedSnapshot.value = snapshot()
     pendingDraft = false
     clearTimeout(timer)
-    const success = publish ? '발행했습니다.' : '서버에 저장했습니다.'
+    const success = '서버에 저장했습니다.'
     try { localStorage.removeItem(storageKey); notice.value = success }
     catch { notice.value = `${success} 브라우저 임시저장은 삭제하지 못했습니다.` }
   } catch (error) {
@@ -106,14 +120,18 @@ function restoreDraft() {
       || (p.summary != null && typeof p.summary !== 'string') || (p.tags != null && typeof p.tags !== 'string')) throw new Error('Invalid draft')
     if (p.version != null && (!Number.isSafeInteger(p.version) || p.version < 0)) throw new Error('Invalid draft version')
     if (p.aiAttribution != null && !validAttribution(p.aiAttribution)) throw new Error('Invalid AI attribution')
+    if (p.visibility != null && !['PUBLIC','PRIVATE'].includes(p.visibility)) throw new Error('Invalid visibility')
+    if (p.publishedInput != null && !validPublicationInput(p.publishedInput)) throw new Error('Invalid publication date')
     title.value = p.title ?? ''; markdown.value = p.markdown ?? ''; categoryId.value = p.categoryId ?? null
     summary.value = p.summary ?? ''; tagInput.value = p.tags ?? ''
     if (p.version != null) version.value = p.version
     if (p.aiAttribution != null) aiAttribution.value = p.aiAttribution
+    if (p.visibility != null) visibility.value = p.visibility
+    if (p.publishedInput != null) publishedInput.value = p.publishedInput
     notice.value = '로컬 임시저장을 복원했습니다.'
   } catch { notice.value = '임시저장을 복원하지 못했습니다.' }
 }
-watch([title, markdown, categoryId, summary, tagInput, version, aiAttribution], () => {
+watch([title, markdown, categoryId, summary, tagInput, version, aiAttribution, visibility, publishedInput], () => {
   if (!loaded.value) return
   clearTimeout(timer)
   pendingDraft = true
@@ -131,7 +149,7 @@ onBeforeUnmount(() => {
   <main>
     <RouterLink class="back-link" to="/">← DevFlow</RouterLink>
     <h1 class="create-post-heading">{{ postId ? '게시글 검토 및 수정' : '새 글 작성' }}</h1>
-    <RouterLink to="/admin">관리자 목록</RouterLink><p>{{ status }} · {{ dirty ? '서버에 저장하지 않은 변경 사항이 있습니다.' : '서버 저장 후 변경 사항이 없습니다.' }} 로컬 임시저장은 이 브라우저에 남습니다. 공용 기기에서는 사용 후 삭제하세요.</p><button :disabled="!loaded || busy" @click="restoreDraft">로컬 임시저장 복원</button><button :disabled="!loaded || busy" @click="clearDraft">로컬 임시저장 삭제</button>
+    <RouterLink to="/my-posts">내 글</RouterLink> · <RouterLink to="/admin">관리자 목록</RouterLink><p>{{ status }} · {{ visibility === 'PRIVATE' ? '비공개 · 작성자만' : '공개' }} · {{ dirty ? '서버에 저장하지 않은 변경 사항이 있습니다.' : '서버 저장 후 변경 사항이 없습니다.' }} 로컬 임시저장은 이 브라우저에 남습니다. 공용 기기에서는 사용 후 삭제하세요.</p><button :disabled="!loaded || busy" @click="restoreDraft">로컬 임시저장 복원</button><button :disabled="!loaded || busy" @click="clearDraft">로컬 임시저장 삭제</button>
     <p v-if="conflict" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="`/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요. 이 화면에서는 덮어쓰지 않습니다.</p>
     <fieldset :inert="busy || !loaded" :disabled="busy || !loaded" style="border:0;padding:0;margin:16px 0">
     <AiDraftPanel @apply="applyAiDraft" />
@@ -143,7 +161,7 @@ onBeforeUnmount(() => {
       @save="save(false)"
       @publish="save(true)"
     >
-      <template #actions="{ uploading }"><button type="button" :disabled="uploading || conflict" @click="save(false)">임시 저장</button><button type="button" :disabled="uploading || conflict" @click="save(true)">발행</button></template>
+      <template #actions="{ uploading }"><PublicationFields v-model:published-input="publishedInput" v-model:visibility="visibility" /><button type="button" :disabled="uploading || conflict" @click="save(false)">저장</button></template>
       <template #metadata>
         <div class="post-metadata">
           <CategoryInput v-model="categoryId" :categories="categories" @added="addCategory" />

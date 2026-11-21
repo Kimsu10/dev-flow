@@ -5,6 +5,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/admin/analytics', meta: { admin: true }, component: () => import('./views/AnalyticsView.vue') },
   { path: '/login', component: () => import('./views/LoginView.vue') },
   { path: '/forbidden', component: () => import('./views/ForbiddenView.vue') },
+  { path: '/my-posts', meta: { admin: true }, component: () => import('./views/MyPostsView.vue') },
   { path: '/admin', meta: { admin: true }, component: () => import('./views/AdminView.vue') },
   { path: '/admin/posts/:id(\\d+)/edit', meta: { admin: true, editor: true }, component: () => import('./views/PostCreateView.vue') },
   { path: '/', name: 'home', component: () => import('./views/BlogHomeView.vue') },

@@ -12,8 +12,8 @@ vi.mock('../auth', () => ({ api: vi.fn(), auth: { user: { id: 5, role: 'ADMIN' }
 } }))
 vi.mock('../components/editor/MarkdownEditorLayout.vue', async () => {
   const { defineComponent, h } = await import('vue')
-  return { default: defineComponent({ props: ['modelValue', 'title'], emits: ['update:title', 'update:modelValue', 'save', 'publish'], setup(props, { emit }) {
-    return () => h('div', [h('input', { class: 'test-title', value: props.title, onInput: (e: Event) => emit('update:title', (e.target as HTMLInputElement).value) }), h('textarea', { class: 'test-markdown', value: props.modelValue, onInput: (e: Event) => emit('update:modelValue', (e.target as HTMLTextAreaElement).value) }), h('button', { class: 'test-save', onClick: () => emit('save') }, 'Save')])
+  return { default: defineComponent({ props: ['modelValue', 'title'], emits: ['update:title', 'update:modelValue', 'save', 'publish'], setup(props, { emit, slots }) {
+    return () => h('div', [h('input', { class: 'test-title', value: props.title, onInput: (e: Event) => emit('update:title', (e.target as HTMLInputElement).value) }), h('textarea', { class: 'test-markdown', value: props.modelValue, onInput: (e: Event) => emit('update:modelValue', (e.target as HTMLTextAreaElement).value) }), h('div', { class: 'md-actions' }, slots.actions?.({ uploading: false })), h('button', { class: 'test-save', onClick: () => emit('save') }, 'Save')])
   } }) }
 })
 let app: VueApp | undefined
@@ -127,4 +127,30 @@ it('retains applied AI question and sources through edits, local restore and ser
   const reloaded = await mount()
   expect(reloaded.host.querySelector('.applied-ai')?.textContent).toContain(draft.question)
   expect(reloaded.host.querySelector('.applied-ai a')?.getAttribute('href')).toBe(draft.sources[0]!.url)
+})
+
+it('defaults new saves to private, sends a chosen publication instant, and preserves choices in local drafts', async () => {
+  const { host } = await mount('/posts/create')
+  expect(host.querySelector<HTMLSelectElement>('#post-visibility')?.value).toBe('PRIVATE')
+  expect(host.querySelector<HTMLInputElement>('#post-publication')?.value).toBe('')
+  typeTitle(host, 'New dated post')
+  const date = host.querySelector<HTMLInputElement>('#post-publication')!
+  date.value = '2020-03-04T12:30'; date.dispatchEvent(new Event('input'))
+  const visibility = host.querySelector<HTMLSelectElement>('#post-visibility')!
+  visibility.value = 'PUBLIC'; visibility.dispatchEvent(new Event('change'))
+  window.dispatchEvent(new Event('pagehide'))
+  const draft = JSON.parse(localStorage.getItem('devflow-editor-5-new')!)
+  expect(draft.visibility).toBe('PUBLIC');expect(draft.publishedInput).toBe('2020-03-04T12:30')
+  host.querySelector<HTMLButtonElement>('.test-save')!.click()
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts','POST',expect.objectContaining({ visibility: 'PUBLIC', publishedAt: new Date('2020-03-04T12:30').toISOString() })))
+})
+
+it('loads existing visibility and omits untouched publication time to preserve database precision', async () => {
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(1), visibility: 'PUBLIC', publishedAt: '2016-01-02T03:04:05.123456Z' })
+  const { host } = await mount()
+  expect(host.querySelector<HTMLSelectElement>('#post-visibility')?.value).toBe('PUBLIC')
+  expect(host.querySelector<HTMLInputElement>('#post-publication')?.value).not.toBe('')
+  typeTitle(host, 'Date untouched')
+  host.querySelector<HTMLButtonElement>('.test-save')!.click()
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1','PUT',expect.objectContaining({ visibility: 'PUBLIC', publishedAt: undefined })))
 })

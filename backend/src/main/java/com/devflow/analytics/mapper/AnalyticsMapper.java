@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.*;
 @Mapper
 public interface AnalyticsMapper {
  String WINDOW="occurred_at >= #{from} AND occurred_at < #{until}";
- String VISIBLE="p.status='PUBLISHED' AND p.deleted_at IS NULL AND p.published_at <= CURRENT_TIMESTAMP";
+ String VISIBLE="p.visibility='PUBLIC' AND p.status='PUBLISHED' AND p.deleted_at IS NULL AND p.published_at <= CURRENT_TIMESTAMP";
  @Select("SELECT count(DISTINCT visitor_hash) AS visitors,count(*) AS page_views,count(DISTINCT session_id) AS visits FROM blog.page_view_events WHERE "+WINDOW)
  Counts counts(@Param("from") OffsetDateTime from,@Param("until") OffsetDateTime until);
  @Select("SELECT count(DISTINCT visitor_hash) AS visitors,count(*) AS page_views,count(DISTINCT session_id) AS visits FROM blog.page_view_events") Counts totals();

@@ -120,3 +120,4 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 .related-posts h2 { margin-bottom: 24px; font-size: 23px; letter-spacing: -.65px; }
 .ai-disclosure { margin-bottom: 24px; padding: 16px; border: 1px solid #d4d4d4; border-radius: 8px; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .ai-disclosure p { margin: 8px 0 0; white-space: pre-wrap; }
+.private-post-notice { padding: 12px; border: 1px solid #d4d4d4; border-radius: 6px; font-size: 14px; }

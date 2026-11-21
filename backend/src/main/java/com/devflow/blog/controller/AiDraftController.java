@@ -16,5 +16,5 @@ public class AiDraftController {
     @PostMapping public ApiResponse<Draft> generate(@Valid @RequestBody Request request, @AuthenticationPrincipal Actor actor) {
         return new ApiResponse<>(service.generate(request.question(), actor.id()));
     }
-    @GetMapping("/{id}") public ApiResponse<Draft> find(@PathVariable String id) { return new ApiResponse<>(service.find(id)); }
+    @GetMapping("/{id}") public ApiResponse<Draft> find(@PathVariable String id,@AuthenticationPrincipal Actor actor) { return new ApiResponse<>(service.findForActor(id,actor.id())); }
 }

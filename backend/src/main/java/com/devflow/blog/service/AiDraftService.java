@@ -40,6 +40,13 @@ public class AiDraftService {
         if (row == null) throw new ApiException(HttpStatus.NOT_FOUND, "AI_DRAFT_NOT_FOUND", "AI 초안을 찾을 수 없습니다.");
         return new Draft(row.id(), row.question(), row.contentMarkdown(), sources(row));
     }
+    public Draft findForActor(String id,long actorId) {
+        requireId(id);
+        var row=mapper.find(id);
+        if(row==null || (row.authorId()!=actorId && !mapper.readableReference(id,actorId)))
+            throw new ApiException(HttpStatus.NOT_FOUND,"AI_DRAFT_NOT_FOUND","AI 초안을 찾을 수 없습니다.");
+        return new Draft(row.id(),row.question(),row.contentMarkdown(),sources(row));
+    }
     public Attribution attributionForPost(long id) {
         var row = mapper.forPost(id);
         return row == null ? null : new Attribution(row.id(), row.question(), sources(row));

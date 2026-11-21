@@ -1,6 +1,7 @@
 package com.devflow.blog.service;
 
 import com.devflow.blog.domain.PostRow;
+import com.devflow.auth.domain.Actor;
 import com.devflow.blog.dto.BlogResponses.*;
 import com.devflow.blog.mapper.BlogMapper;
 import com.devflow.common.exception.ApiException;
@@ -44,13 +45,13 @@ public class BlogService {
         var items = mapper.findPosts(categoryId, size, (long) page * size, pattern).stream().map(PostSummary::from).toList();
         return new PostPage(items, page, size, total, (total + size - 1) / size);
     }
-    public PostDetail post(long id) {
-        var row = mapper.findPost(id);
+    public PostDetail post(long id,Actor actor) {
+        var row = mapper.findPost(id,actor==null?null:actor.id());
         if (row == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "게시글을 찾을 수 없습니다.");
         }
         var related = row.categoryId() == null ? List.<PostSummary>of()
             : mapper.findRelatedPosts(row.categoryId(), id).stream().map(PostSummary::from).toList();
-        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related, ai.attributionForPost(id));
+        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related, ai.attributionForPost(id), row.visibility());
     }
 }

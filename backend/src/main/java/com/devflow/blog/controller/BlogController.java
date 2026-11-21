@@ -3,6 +3,9 @@ package com.devflow.blog.controller;
 import com.devflow.blog.dto.BlogResponses.*;
 import com.devflow.blog.service.BlogService;
 import com.devflow.common.response.ApiResponse;
+import com.devflow.auth.domain.Actor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 public class BlogController {
     private final BlogService service;
     public BlogController(BlogService service) { this.service = service; }
+    @ModelAttribute
+    public void preventStalePrivateResponses(HttpServletResponse response) { response.setHeader("Cache-Control", "private, no-store"); }
 
     @GetMapping("/blog/home")
     public ApiResponse<Home> home() { return new ApiResponse<>(service.home()); }
@@ -26,5 +31,5 @@ public class BlogController {
         return new ApiResponse<>(service.posts(categoryId, page, size, q));
     }
     @GetMapping("/posts/{id}")
-    public ApiResponse<PostDetail> post(@PathVariable long id) { return new ApiResponse<>(service.post(id)); }
+    public ApiResponse<PostDetail> post(@PathVariable long id,@AuthenticationPrincipal Actor actor) { return new ApiResponse<>(service.post(id,actor)); }
 }

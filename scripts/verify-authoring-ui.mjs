@@ -71,13 +71,14 @@ async function fixture(params) {
   } else if (pathname === '/admin/ai-drafts' && method === 'POST') { generationCalls++; data = { ...draft, question: body.question } }
   else if (pathname.startsWith('/admin/ai-drafts/')) data = draft
   else if (pathname === '/admin/posts' && method === 'POST') {
-    savedPost = { ...body, id: 123, version: 0, status: 'DRAFT' }; data = savedPost
+    savedPost = { ...body, id: 123, version: 0, status: 'PUBLISHED', createdAt: '2026-11-20T00:00:00Z', publishedAt: body.publishedAt || '2026-11-20T00:00:00Z' }; data = savedPost
   } else if (pathname === '/admin/posts/123' && method === 'PUT') { savedPost = { ...savedPost, ...body, version: savedPost.version + 1 }; data = savedPost }
   else if (pathname === '/admin/posts/123') data = savedPost
-  else if (pathname === '/admin/posts/123/publish') { savedPost = { ...savedPost, status: 'PUBLISHED', version: savedPost.version + 1 }; data = savedPost }
+  else if (pathname === '/admin/posts/mine') data = savedPost ? [savedPost] : []
+  else if (pathname === '/admin/posts/123/publish') { savedPost = { ...savedPost, status: 'PUBLISHED', visibility: 'PUBLIC', version: savedPost.version + 1 }; data = savedPost }
   else if (pathname === '/posts/123') data = {
-    post: { id: 123, title: savedPost.title, summary: '', thumbnailUrl: null, createdAt: '2026-11-20T00:00:00Z', publishedAt: '2026-11-20T00:00:00Z', category },
-    contentMarkdown: savedPost.contentMarkdown, relatedPosts: [], aiAttribution: { draftId: draft.id, question: draft.question, sources: draft.sources },
+    post: { id: 123, title: savedPost.title, summary: '', thumbnailUrl: null, createdAt: savedPost.createdAt, publishedAt: savedPost.publishedAt, category },
+    contentMarkdown: savedPost.contentMarkdown, visibility: savedPost.visibility, relatedPosts: [], aiAttribution: { draftId: draft.id, question: draft.question, sources: draft.sources },
   }
   else throw new Error('Unimplemented UI fixture: ' + method + ' ' + pathname)
   await command('Fetch.fulfillRequest', { requestId: params.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify({ data })).toString('base64') })
@@ -116,6 +117,8 @@ try {
     const calls = generationCalls
     await evaluate("(() => { const input = document.querySelector('.md-title input'); input.value = '브라우저 검증 글'; input.dispatchEvent(new Event('input', {bubbles:true})); document.querySelector('.cm-content').focus(); })()")
     await command('Input.insertText', { text: '직접 작성한 원래 본문' })
+    assert.equal(await evaluate("document.querySelector('#post-visibility').value"),'PRIVATE')
+    await evaluate("(() => { const date = document.querySelector('#post-publication'); date.value = '2020-03-04T12:30'; date.dispatchEvent(new Event('input', {bubbles:true})); })()")
     await clickLabel('+ 카테고리 추가')
     await evaluate("(() => { const input = document.querySelector('#new-category-name'); input.value = '추가 카테고리'; input.dispatchEvent(new Event('input', {bubbles:true})); })()")
     await clickLabel('저장 후 선택')
@@ -142,16 +145,28 @@ try {
     await evaluate("document.querySelector('.applied-ai').scrollIntoView()")
     assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'),false)
     await command('Page.captureScreenshot',{format:'png'}).then(r=>writeFile(path.join(output,label+'-applied.png'),Buffer.from(r.data,'base64')))
-    await clickLabel('발행', "document.querySelector('.md-actions')")
-    await waitFor("[...document.querySelectorAll('[role=status]')].some(el => el.textContent.includes('발행했습니다'))")
+    await clickLabel('저장', "document.querySelector('.md-actions')")
+    await waitFor("[...document.querySelectorAll('[role=status]')].some(el => el.textContent.includes('서버에 저장했습니다'))")
     assert.equal(savedPost.aiDraftId,draft.id)
+    assert.equal(savedPost.visibility,'PRIVATE')
+    const originalDate = savedPost.publishedAt
+    assert.ok(originalDate)
+    await navigate('/my-posts', "document.querySelector('.my-posts article') !== null")
+    assert.ok(await evaluate("document.querySelector('.my-posts').textContent.includes('비공개 · 작성자만')"))
+    await command('Page.captureScreenshot',{format:'png'}).then(r=>writeFile(path.join(output,label+'-my-posts.png'),Buffer.from(r.data,'base64')))
+    await clickLabel('공개로 전환')
+    await waitFor("document.querySelector('.my-posts strong').textContent === '공개'")
+    assert.equal(savedPost.visibility,'PUBLIC');assert.equal(savedPost.publishedAt,originalDate)
     await navigate('/admin/posts/123/edit', "document.querySelector('.applied-ai') !== null")
     assert.ok(await evaluate("document.querySelector('.applied-ai').textContent.includes('PostgreSQL의 트랜잭션')"))
+    assert.equal(await evaluate("document.querySelector('#post-visibility').value"),'PUBLIC')
+    assert.ok(await evaluate("document.querySelector('#post-publication').value.startsWith('2020-03-04')"))
     await navigate('/posts/123', "document.querySelector('.ai-disclosure') !== null")
+    assert.equal(await evaluate("document.querySelector('.post-detail-header time').getAttribute('datetime')"),originalDate)
     assert.equal(await evaluate("document.querySelector('.ai-sources a').href"),draft.sources[0].url)
     assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'),false)
     await command('Page.captureScreenshot',{format:'png'}).then(r=>writeFile(path.join(output,label+'-published.png'),Buffer.from(r.data,'base64')))
-    results.push({ label, categorySelected:true, previewBeforeApply:true, localRestore:true, serverReload:true, publishedAttribution:true, overflow:false })
+    results.push({ label, categorySelected:true, previewBeforeApply:true, localRestore:true, privateSave:true, myPostsConversion:true, publicationDatePreserved:true, serverReload:true, publishedAttribution:true, overflow:false })
   }
   assert.deepEqual(scriptErrors,[])
   await writeFile(path.join(output,'results.json'),JSON.stringify({ transport:'Mocked authoring API fixtures; no live AI or database writes',results,scriptErrors },null,2))

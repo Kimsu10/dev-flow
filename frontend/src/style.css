@@ -22,4 +22,4 @@ button:focus-visible { outline: 2px solid #171717; outline-offset: 4px; }
 .admin-posts button, .blog-page li button { margin: 4px 8px 4px 0; }
 
 .blog-header nav { flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 640px) { .blog-header { align-items: flex-start; gap: 14px; } .blog-header nav { gap: 8px 14px; } .blog-header nav button { padding: 5px 8px; } }
+@media (max-width: 640px) { .blog-header { height: auto; min-height: 78px; padding-block: 16px; align-items: flex-start; gap: 14px; } .blog-header nav { gap: 8px 14px; } .blog-header nav button { padding: 5px 8px; } }
