@@ -19,7 +19,7 @@ export const routes: RouteRecordRaw[] = [
 export const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes })
 
 export async function authGuard(to: { path: string; fullPath: string; meta: Record<string, unknown> }) {
-  try { await restoreAuth() } catch { if (to.meta.admin) return '/login'; return true }
+  try { await restoreAuth(!!to.meta.admin && !auth.user) } catch { if (to.meta.admin) return '/login'; return true }
   if (to.meta.admin && !auth.user) return { path: '/login', query: { redirect: to.fullPath } }
   if (to.meta.admin && auth.user?.role !== 'ADMIN') return '/forbidden'
   return true

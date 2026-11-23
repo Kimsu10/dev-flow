@@ -13,16 +13,43 @@ it('restores authentication once and guards privileged routes', async () => {
  auth.user = { ...profile, role: 'USER' }
  expect(await authGuard({ path: '/admin', fullPath: '/admin', meta: { admin: true } })).toBe('/forbidden')
  auth.user = null
+ fetcher.mockResolvedValueOnce(new Response('{}', { status: 401 }))
  expect(await authGuard({ path: '/posts/create', fullPath: '/posts/create', meta: { admin: true } })).toEqual({ path: '/login', query: { redirect: '/posts/create' } })
 })
 it('fetches CSRF before login and never stores passwords in state', async () => {
  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ data: { headerName: 'X-CSRF-TOKEN', token: 'test-csrf' } })))
   .mockResolvedValueOnce(new Response(JSON.stringify({ data: profile })))
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: profile })))
  vi.stubGlobal('fetch', fetcher)
  await login('owner', 'test-password')
  expect(fetcher.mock.calls[1]?.[1]).toMatchObject({ method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-TOKEN': 'test-csrf' } })
  expect(auth.user).toEqual(profile)
+ expect(fetcher.mock.calls[2]?.[0]).toBe('/api/auth/me')
  expect(JSON.stringify(auth)).not.toContain('test-password')
+})
+it('does not show an authenticated profile when the new session cookie was not retained', async () => {
+ vi.stubGlobal('fetch', vi.fn()
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: { headerName: 'X-CSRF-TOKEN', token: 'test-csrf' } })))
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: profile })))
+  .mockResolvedValueOnce(new Response('{}', { status: 401 })))
+ await expect(login('owner', 'test-password')).rejects.toMatchObject({ code: 'SESSION_NOT_ESTABLISHED' })
+ expect(auth.user).toBeNull()
+})
+
+it('keeps a new login when an older unauthorized response arrives', async () => {
+ let finish: (response: Response) => void = () => {}
+ const staleResponse = new Promise<Response>(resolve => { finish = resolve })
+ const fetcher = vi.fn()
+  .mockReturnValueOnce(staleResponse)
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: { headerName: 'X-CSRF-TOKEN', token: 'test-csrf' } })))
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: profile })))
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: profile })))
+ vi.stubGlobal('fetch', fetcher)
+ const previous = expect(api('/admin/posts')).rejects.toMatchObject({ status: 401 })
+ await login('owner', 'test-password')
+ finish(new Response('{}', { status: 401 }))
+ await previous
+ expect(auth.user).toEqual(profile)
 })
 it('clears authentication on expired sessions and retries transient restoration errors', async () => {
  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response('{}', { status: 503 })).mockResolvedValueOnce(new Response('{}', { status: 401 })))

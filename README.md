@@ -51,7 +51,11 @@ npm ci
 npm run dev
 ```
 
-화면: http://localhost:5173 / API: http://localhost:8080/api/health
+화면: http://127.0.0.1:5173 / API: http://127.0.0.1:8080/api/health
+
+Windows 로컬 실행 스크립트는 백엔드를 루프백에 바인딩합니다. 쿠키 보안 설정이 생략되면 이 로컬 HTTP 실행에서만 `SESSION_COOKIE_SECURE=false`를 적용합니다. HTTPS 배포에서는 `SESSION_COOKIE_SECURE=true`를 사용합니다. 브라우저에서는 로그인과 관리자 화면을 같은 주소로 열어야 세션 쿠키를 공유합니다.
+
+AI 글쓰기를 쓰려면 루트 `.env`의 `OPENAI_API_KEY`를 설정한 뒤 백엔드를 재시작하세요. IDE나 별도 서비스에서 실행하는 경우 백엔드 프로세스 환경변수로 주입합니다.
 
 macOS/Linux에서는 동일한 환경변수를 셸에서 설정하고 backend에서 `sh ./gradlew bootRun`을 실행합니다.
 
@@ -65,7 +69,7 @@ macOS/Linux에서는 동일한 환경변수를 셸에서 설정하고 backend에
 | DB_URL | Spring JDBC URL | POSTGRES_HOST/PORT/DB로 구성 (기본 jdbc:postgresql://localhost:15432/devflow) |
 | DB_USERNAME / DB_PASSWORD | Spring DB 인증 | POSTGRES_USER / POSTGRES_PASSWORD 사용 가능 |
 | SERVER_PORT | 백엔드 포트 | 8080 |
-| API_PROXY_TARGET | Vite 개발 프록시 대상 | http://localhost:8080 |
+| API_PROXY_TARGET | Vite 개발 프록시 대상 | http://127.0.0.1:8080 |
 
 백엔드 포트를 바꾸면 `frontend/.env.example`을 `frontend/.env`로 복사해 프록시 대상도 변경합니다. `VITE_*`는 브라우저에 노출되므로 비밀정보를 넣지 않습니다. 프로덕션에서는 `/api`를 백엔드로 전달하는 동일 출처 리버스 프록시가 필요합니다. `vite preview`는 개발 프록시를 제공하지 않습니다.
 
@@ -93,7 +97,7 @@ Set-Location ../backend
 
 프런트엔드는 정상·503·잘못된 응답·통신 오류 후 재시도를 검증합니다. 백엔드는 Service 단위 테스트, HTTP 200/503 테스트, H2 PostgreSQL 모드 기반 전체 계층 통합 테스트를 실행합니다. H2 검증은 실제 PostgreSQL 호환성 검증을 대신하지 않습니다.
 
-실제 DB 확인: Compose와 백엔드를 실행한 뒤 `Invoke-RestMethod http://localhost:8080/api/health`로 UP을 확인합니다. `docker compose stop postgres` 후 다시 호출하면 503이 예상됩니다. 이후 `docker compose start postgres`로 복구합니다.
+실제 DB 확인: Compose와 백엔드를 실행한 뒤 `Invoke-RestMethod http://127.0.0.1:8080/api/health`로 UP을 확인합니다. `docker compose stop postgres` 후 다시 호출하면 503이 예상됩니다. 이후 `docker compose start postgres`로 복구합니다.
 
 DB 종료는 `docker compose down`을 사용합니다. 볼륨은 유지되며, 초기화된 DB의 인증정보는 `.env` 수정만으로 변경되지 않습니다.
 

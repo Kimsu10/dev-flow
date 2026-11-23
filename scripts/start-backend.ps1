@@ -51,8 +51,13 @@ $env:DB_USERNAME = if ($settings['DB_USERNAME']) { $settings['DB_USERNAME'] } el
 $env:DB_PASSWORD = if ($settings.ContainsKey('DB_PASSWORD')) { $settings['DB_PASSWORD'] } else { $settings['POSTGRES_PASSWORD'] }
 if ([string]::IsNullOrEmpty($env:DB_PASSWORD)) { throw 'Configure DB_PASSWORD or POSTGRES_PASSWORD in root .env.' }
 $env:SERVER_PORT = if ($Port) { [string]$Port } elseif ($settings['SERVER_PORT']) { $settings['SERVER_PORT'] } else { '8080' }
+$env:SERVER_ADDRESS = '127.0.0.1'
+if (-not $env:SESSION_COOKIE_SECURE) { $env:SESSION_COOKIE_SECURE = 'false' }
 
-Write-Host 'Starting DevFlow backend using root .env (credentials hidden).'
+if ([string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) {
+    Write-Warning 'AI drafts are disabled. Set OPENAI_API_KEY in the root .env or in the backend process environment and restart.'
+}
+Write-Host 'Starting local DevFlow backend on 127.0.0.1 using root .env (credentials hidden).'
 Push-Location (Join-Path $projectRoot 'backend')
 try {
     & .\gradlew.bat bootRun --no-daemon

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { login, auth } from '../auth'
+import { ApiError, login, auth } from '../auth'
 import BlogShell from '../components/blog/BlogShell.vue'
 const route = useRoute(), router = useRouter()
 const username = ref(''), password = ref(''), message = ref(''), busy = ref(false)
@@ -11,7 +11,11 @@ async function submit() {
     await login(username.value, password.value)
     const target = route.query.redirect
     await router.replace(auth.user?.role === 'ADMIN' ? (typeof target === 'string' && /^\/(?:admin(?:\/|$)|posts\/create$|my-posts$)/.test(target) ? target : '/admin') : '/')
-  } catch { message.value = '로그인에 실패했습니다. 아이디 또는 이메일과 비밀번호를 확인하세요.' }
+  } catch (error) {
+    message.value = error instanceof ApiError && error.code === 'SESSION_NOT_ESTABLISHED'
+      ? error.message
+      : '로그인에 실패했습니다. 아이디 또는 이메일과 비밀번호를 확인하세요.'
+  }
   finally { password.value = ''; busy.value = false }
 }
 </script>
