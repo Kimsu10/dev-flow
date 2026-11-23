@@ -49,16 +49,37 @@ function applyAiDraft(draft: AiDraft) {
 }
 // Capture the key for this editor instance: route params may change before unmount.
 const storageKey = `devflow-editor-${auth.user?.id ?? 'admin'}-${route.params.id ?? 'new'}`
+const draftState = ref<'checking' | 'available' | 'empty' | 'unavailable'>('checking')
+const draftStatus = computed(() => ({
+  checking: '임시저장 확인 중',
+  available: '복원할 임시저장 있음',
+  empty: '저장된 임시저장 없음',
+  unavailable: '브라우저 저장소 사용 불가',
+})[draftState.value])
 const snapshot = () => JSON.stringify({ title: title.value, markdown: markdown.value, categoryId: categoryId.value, summary: summary.value, version: version.value, aiAttribution: aiAttribution.value, publishedInput: publishedInput.value })
 const savedSnapshot = ref('')
 const dirty = computed(() => loaded.value && snapshot() !== savedSnapshot.value)
 let timer: ReturnType<typeof setTimeout> | undefined
 let pendingDraft = false
+function readDraft() {
+  const raw = localStorage.getItem(storageKey)
+  draftState.value = raw === null ? 'empty' : 'available'
+  return raw
+}
+function refreshDraftState(event?: StorageEvent) {
+  if (event?.key != null && event.key !== storageKey) return
+  try { readDraft() }
+  catch { draftState.value = 'unavailable' }
+}
 function flushDraft() {
   clearTimeout(timer)
   if (!pendingDraft || !loaded.value) return
-  try { localStorage.setItem(storageKey, snapshot()); pendingDraft = false; notice.value = '브라우저에 임시저장했습니다.' }
-  catch { notice.value = '브라우저 임시저장을 사용할 수 없습니다. 서버에 저장하세요.' }
+  try {
+    localStorage.setItem(storageKey, snapshot())
+    pendingDraft = false
+    draftState.value = 'available'
+    notice.value = '브라우저에 임시저장했습니다.'
+  } catch { notice.value = '브라우저 임시저장을 사용할 수 없습니다. 서버에 저장하세요.' }
 }
 function beforeUnload(event: BeforeUnloadEvent) {
   flushDraft()
@@ -66,6 +87,8 @@ function beforeUnload(event: BeforeUnloadEvent) {
 }
 function visibilityChanged() { if (document.visibilityState === 'hidden') flushDraft() }
 onMounted(async () => {
+  refreshDraftState()
+  window.addEventListener('storage', refreshDraftState)
   window.addEventListener('pagehide', flushDraft)
   window.addEventListener('beforeunload', beforeUnload)
   document.addEventListener('visibilitychange', visibilityChanged)
@@ -123,7 +146,7 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
       scheduled: '예약 공개로 저장했습니다.',
       public: '독자가 볼 수 있도록 공개했습니다.',
     }[savedPublication.value]
-    try { localStorage.removeItem(storageKey); notice.value = success }
+    try { localStorage.removeItem(storageKey); draftState.value = 'empty'; notice.value = success }
     catch { notice.value = `${success} 브라우저 임시저장은 삭제하지 못했습니다.` }
   } catch (error) {
     if (error instanceof ApiError && error.code === 'POST_CONFLICT') conflict.value = true
@@ -134,14 +157,14 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
 }
 function clearDraft() {
   clearTimeout(timer)
-  try { localStorage.removeItem(storageKey); pendingDraft = false; notice.value = '로컬 임시저장을 삭제했습니다.' }
+  try { localStorage.removeItem(storageKey); pendingDraft = false; draftState.value = 'empty'; notice.value = '로컬 임시저장을 삭제했습니다.' }
   catch { notice.value = '로컬 임시저장을 삭제하지 못했습니다.' }
 }
 function restoreDraft() {
   if (!loaded.value || busy.value) return
   try {
-    const raw = localStorage.getItem(storageKey)
-    if (!raw) { notice.value = '복원할 임시저장이 없습니다.'; return }
+    const raw = readDraft()
+    if (raw === null) { notice.value = '복원할 임시저장이 없습니다.'; return }
     const p = JSON.parse(raw)
     if (!p || typeof p !== 'object' || typeof p.title !== 'string' || typeof p.markdown !== 'string'
       || (p.categoryId != null && (!Number.isSafeInteger(p.categoryId) || p.categoryId < 1))
@@ -166,6 +189,7 @@ watch([title, markdown, categoryId, summary, version, aiAttribution, publishedIn
 }, { flush: 'sync' })
 onBeforeUnmount(() => {
   flushDraft()
+  window.removeEventListener('storage', refreshDraftState)
   window.removeEventListener('pagehide', flushDraft)
   window.removeEventListener('beforeunload', beforeUnload)
   document.removeEventListener('visibilitychange', visibilityChanged)
@@ -183,11 +207,11 @@ onBeforeUnmount(() => {
       <h1>{{ postId ? '게시글 검토 및 수정' : '새 글 작성' }}</h1>
       <p><strong v-if="postId && loaded">{{ savedPublicationState }}</strong>{{ dirty ? '저장하지 않은 변경 사항이 있습니다.' : postId ? '저장한 내용과 같습니다.' : '제목과 본문을 작성해 주세요.' }}</p>
     </header>
-    <details class="local-draft">
-      <summary>브라우저 임시저장 관리</summary>
+    <details class="local-draft" :class="{ 'has-draft': draftState === 'available' }">
+      <summary>브라우저 임시저장 <span class="draft-status">{{ draftStatus }}</span></summary>
       <p>임시저장은 이 브라우저에 남습니다. 공용 기기에서는 사용 후 삭제하세요.</p>
-      <button type="button" :disabled="!loaded || busy" @click="restoreDraft">로컬 임시저장 복원</button>
-      <button type="button" :disabled="!loaded || busy" @click="clearDraft">로컬 임시저장 삭제</button>
+      <button type="button" :disabled="!loaded || busy || draftState !== 'available'" @click="restoreDraft">로컬 임시저장 복원</button>
+      <button type="button" :disabled="busy || draftState !== 'available'" @click="clearDraft">로컬 임시저장 삭제</button>
     </details>
     <p v-if="conflict" class="editor-alert" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="`/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요.</p>
     <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
@@ -236,6 +260,9 @@ onBeforeUnmount(() => {
 .editor-heading strong { padding: 2px 10px; border-radius: 20px; color: #1e4434; background: #e9f2ec; font-size: .85rem; }
 .local-draft { padding: 12px 16px; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; }
 .local-draft summary { cursor: pointer; font-weight: 600; }
+.local-draft.has-draft { background: #eef5ef; border-color: #a9bfad; }
+.draft-status { margin-inline-start: 8px; color: #525252; font-size: .85rem; font-weight: 500; }
+.has-draft .draft-status { color: #1e4434; font-weight: 650; }
 .local-draft button { margin: 0 8px 4px 0; }
 .editor-alert, .editor-notice { padding: 10px 14px; border-radius: 6px; overflow-wrap: anywhere; }
 .editor-alert { background: #fff1ef; color: #92281c; }

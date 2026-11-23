@@ -62,12 +62,36 @@ it('keeps server-save success visible when draft removal is denied', async () =>
   expect(unload.defaultPrevented).toBe(false)
 })
 it('rejects malformed drafts without changing the editor', async () => {
-  const { host } = await mount()
   localStorage.setItem('devflow-editor-5-1', JSON.stringify({ title: {}, markdown: 'bad' }))
+  const { host } = await mount()
   Array.from(host.querySelectorAll('button')).find(button => button.textContent === '로컬 임시저장 복원')!.click()
   await nextTick()
   expect(host.querySelector<HTMLInputElement>('.test-title')?.value).toBe('Post 1')
   expect(host.textContent).toContain('임시저장을 복원하지 못했습니다.')
+})
+
+it('shows a recoverable draft before opening its controls and updates after deletion', async () => {
+  const key = 'devflow-editor-5-1'
+  const draft = JSON.stringify({ title: 'Recovered title', markdown: 'Recovered body' })
+  localStorage.setItem(key, draft)
+  const { host } = await mount()
+  const details = host.querySelector<HTMLDetailsElement>('.local-draft')!
+  const status = () => details.querySelector('.draft-status')?.textContent
+  const [restore, remove] = details.querySelectorAll('button')
+  expect(details.open).toBe(false)
+  expect(status()).toBe('복원할 임시저장 있음')
+  expect(restore!.disabled).toBe(false)
+  remove!.click()
+  await nextTick()
+  expect(status()).toBe('저장된 임시저장 없음')
+  expect(restore!.disabled).toBe(true)
+  localStorage.setItem(key, draft)
+  window.dispatchEvent(new StorageEvent('storage', { key, newValue: draft }))
+  await nextTick()
+  expect(status()).toBe('복원할 임시저장 있음')
+  restore!.click()
+  await nextTick()
+  expect(host.querySelector<HTMLInputElement>('.test-title')?.value).toBe('Recovered title')
 })
 
 it('submits the loaded version and preserves content and draft after a conflict', async () => {
@@ -86,8 +110,8 @@ it('submits the loaded version and preserves content and draft after a conflict'
 
 it('restores the draft base version so stale restored content cannot bypass conflict detection', async () => {
   vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(1), version: 3 })
-  const { host } = await mount()
   localStorage.setItem('devflow-editor-5-1', JSON.stringify({ title: 'Old draft', markdown: 'Body', version: 1 }))
+  const { host } = await mount()
   Array.from(host.querySelectorAll('button')).find(button => button.textContent === '로컬 임시저장 복원')!.click()
   await nextTick()
   host.querySelector<HTMLButtonElement>('.test-save')!.click()

@@ -137,6 +137,34 @@ it('distinguishes empty search results from an empty blog', async () => {
   expect(host.textContent).not.toContain('아직 발행된 글이 없습니다')
 })
 
+it('clears a search within its category and resets all filters from an empty list', async () => {
+  const fetchMock = vi.fn().mockImplementation((url: string) => {
+    const items = url.includes('categoryId=') || url.includes('q=') ? [] : [post]
+    return Promise.resolve(response(url === '/api/categories'
+      ? [category] : { items, page: 0, size: 9, totalElements: items.length, totalPages: items.length }))
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const { host, router } = await mount('/posts?q=missing&categoryId=91&page=2')
+  const button = (label: string) => [...host.querySelectorAll('button')].find(item => item.textContent === label)
+  const input = host.querySelector<HTMLInputElement>('#post-search')!
+
+  button('검색어 지우기')!.click()
+  await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ categoryId: '91' }))
+  expect(input.value).toBe('')
+  expect(document.activeElement).toBe(input)
+  await vi.waitFor(() => expect(host.textContent).toContain('이 카테고리에 발행된 글이 없습니다'))
+
+  button('모든 게시글 보기')!.click()
+  await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({}))
+  await vi.waitFor(() => expect(host.querySelector('.post-card')).not.toBeNull())
+
+  router.back()
+  await vi.waitFor(() => expect(router.currentRoute.value.query.categoryId).toBe('91'))
+  router.back()
+  await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ q: 'missing', categoryId: '91', page: '2' }))
+  expect(input.value).toBe('missing')
+})
+
 it('renders a linked table of contents and restores a deep link after the body loads', async () => {
   const scroll = vi.fn()
   const original = HTMLElement.prototype.scrollIntoView

@@ -11,6 +11,7 @@ let app: App | undefined
 afterEach(() => {
   app?.unmount()
   document.body.innerHTML = ''
+  sessionStorage.clear()
   vi.resetAllMocks()
 })
 
@@ -67,4 +68,23 @@ it('filters both queues and loads accounts independently when post loading fails
   await vi.waitFor(() => expect(list()).not.toContain('Agent 검토 글'))
   expect(list()).toContain('예약 글')
   expect(vi.mocked(api).mock.calls.filter(([path]) => path === '/admin/accounts')).toHaveLength(1)
+
+  const postStatus = host.querySelectorAll<HTMLSelectElement>('#admin-posts-heading + .admin-filters select')[1]!
+  postStatus.value = 'scheduled'
+  postStatus.dispatchEvent(new Event('change'))
+  app.unmount()
+  app = createApp(AdminView).use(router)
+  app.mount(host)
+
+  await vi.waitFor(() => expect(list()).toContain('예약 글'))
+  expect(list()).not.toContain('Agent 검토 글')
+  expect(accountList()).toContain('review-bot')
+  expect(accountList()).not.toContain('writer')
+  expect(host.querySelector<HTMLInputElement>('[aria-labelledby="admin-posts-heading"] input')?.value).toBe('')
+  expect(sessionStorage.getItem('devflow:admin:filters:5')).not.toContain('DEV writer')
+
+  const reset = Array.from(host.querySelectorAll('button')).find(button => button.textContent === '글 검색 조건 초기화')!
+  reset.click()
+  await vi.waitFor(() => expect(list()).toContain('Agent 검토 글'))
+  expect(list()).not.toContain('예약 글')
 })

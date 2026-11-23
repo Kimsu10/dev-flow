@@ -11,11 +11,23 @@ const route = useRoute()
 const router = useRouter()
 const search = computed(() => typeof route.query.q === 'string' ? route.query.q : '')
 const searchInput = ref(search.value)
+const searchField = ref<HTMLInputElement | null>(null)
 watch(search, value => { searchInput.value = value })
 function submitSearch() {
   router.push({ name: 'post-list', query: { ...route.query, q: searchInput.value.trim() || undefined, page: undefined } })
 }
 const categoryId = computed(() => typeof route.query.categoryId === 'string' ? route.query.categoryId : undefined)
+const hasFilters = computed(() => !!(search.value || categoryId.value))
+function clearSearch() {
+  searchInput.value = ''
+  searchField.value?.focus()
+  submitSearch()
+}
+function resetFilters() {
+  searchInput.value = ''
+  searchField.value?.focus()
+  router.push({ name: 'post-list', query: { ...route.query, q: undefined, categoryId: undefined, page: undefined } })
+}
 const page = computed(() => /^\d+$/.test(String(route.query.page)) ? Number(route.query.page) : 0)
 const { data, loading, error, reload } = useBlogResource(async signal => {
   const [categories, posts] = await Promise.all([getCategories(signal), getPosts(categoryId.value, page.value, signal, search.value)])
@@ -31,13 +43,20 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value))
     <header class="list-intro"><RouterLink class="text-back" to="/">← Blog</RouterLink><h1>{{ title }}</h1><p class="blog-description">차근차근 쌓아가는 개발의 기록</p></header>
     <form class="post-search" role="search" @submit.prevent="submitSearch">
       <label for="post-search">게시글 검색</label>
-      <div><input id="post-search" v-model="searchInput" type="search" maxlength="100" placeholder="제목, 요약, 본문에서 검색" /><button type="submit">검색</button></div>
+      <div><input id="post-search" ref="searchField" v-model="searchInput" type="search" maxlength="100" placeholder="제목, 요약, 본문에서 검색" /><button type="submit">검색</button></div>
+      <div v-if="search || categoryId" class="post-search-actions">
+        <button v-if="search" type="button" @click="clearSearch">검색어 지우기</button>
+        <button v-if="categoryId" type="button" @click="resetFilters">검색 조건 초기화</button>
+      </div>
     </form>
     <p v-if="data && !loading && !error && search" role="status">“{{ search }}” 검색 결과 {{ data.posts.totalElements }}개</p>
     <nav v-if="data" class="category-nav" aria-label="카테고리 필터"><RouterLink :to="{ name: 'post-list', query: { q: search || undefined } }" :aria-current="!categoryId ? 'page' : undefined">전체</RouterLink><RouterLink v-for="category in data.categories" :key="category.id" :to="{ name: 'post-list', query: { categoryId: category.id, q: search || undefined } }" :aria-current="String(category.id) === categoryId ? 'page' : undefined">{{ category.name }}</RouterLink></nav>
-    <RequestState :loading="loading" :error="error" :empty="!search && !data?.posts.items.length" @retry="reload" />
+    <RequestState :loading="loading" :error="error" :empty="!hasFilters && !data?.posts.items.length" @retry="reload" />
     <template v-if="!loading && !error && data">
-      <div v-if="search && !data.posts.items.length" class="blog-message"><h2>검색 결과가 없습니다.</h2><p>다른 검색어를 입력하거나 카테고리를 변경해 보세요.</p></div>
+      <div v-if="hasFilters && !data.posts.items.length" class="blog-message">
+        <h2>{{ search ? '검색 결과가 없습니다.' : '이 카테고리에 발행된 글이 없습니다.' }}</h2>
+        <button type="button" @click="resetFilters">모든 게시글 보기</button>
+      </div>
       <div class="post-grid list-grid"><PostCard v-for="post in data.posts.items" :key="post.id" :post="post" /></div>
       <nav v-if="data.posts.totalPages > 1" class="pagination" aria-label="게시글 페이지">
         <RouterLink v-if="page > 0" :to="{ query: { ...route.query, page: page - 1 } }">← 이전</RouterLink>
@@ -47,3 +66,8 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value))
     </template>
   </BlogShell>
 </template>
+
+<style scoped>
+.post-search-actions { flex-wrap: wrap; margin-top: .6rem; }
+.post-search-actions button { padding: .45rem .75rem; font-size: .875rem; }
+</style>

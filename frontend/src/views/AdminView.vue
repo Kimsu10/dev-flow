@@ -1,15 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api, auth, type Profile } from '../auth'
 import { getManagedPosts, type ManagedPost } from '../api/admin'
 import BlogShell from '../components/blog/BlogShell.vue'
 import { isFuturePublication, publicationLabels, publicationState } from '../utils/publication'
-const posts = ref<ManagedPost[]>([]), accounts = ref<Profile[]>([]), drafts = ref(true)
-const postQuery = ref(''), postStatus = ref(''), accountQuery = ref(''), accountRole = ref(''), accountStatus = ref('')
+const posts = ref<ManagedPost[]>([]), accounts = ref<Profile[]>([])
 const postRequest = reactive({ busy: true, error: '', notice: '' })
 const accountRequest = reactive({ busy: true, error: '', notice: '' })
 const roles = { ADMIN: '관리자', USER: '사용자', SYSTEM: 'Agent' }
 const statuses = { ACTIVE: '활성', DISABLED: '비활성' }
+const filtersKey = auth.user ? `devflow:admin:filters:${auth.user.id}` : undefined
+function readFilters() {
+  try {
+    if (filtersKey) return JSON.parse(sessionStorage.getItem(filtersKey) ?? '{}') as {
+      drafts?: boolean
+      postStatus?: string
+      accountRole?: string
+      accountStatus?: string
+    } | null
+  } catch { /* Storage can be blocked or contain an invalid value. */ }
+  return null
+}
+function validFilter(value: string | undefined, options: Record<string, string>) {
+  return typeof value === 'string' && Object.hasOwn(options, value) ? value : ''
+}
+const savedFilters = readFilters()
+const drafts = ref(savedFilters?.drafts !== false)
+const postQuery = ref(''), postStatus = ref(validFilter(savedFilters?.postStatus, publicationLabels))
+const accountQuery = ref(''), accountRole = ref(validFilter(savedFilters?.accountRole, roles))
+const accountStatus = ref(validFilter(savedFilters?.accountStatus, statuses))
+watch([drafts, postStatus, accountRole, accountStatus], ([drafts, postStatus, accountRole, accountStatus]) => {
+  try {
+    if (filtersKey) sessionStorage.setItem(filtersKey, JSON.stringify({ drafts, postStatus, accountRole, accountStatus }))
+  } catch { /* Filters still work in the current view. */ }
+}, { flush: 'sync' })
 function matches(query: string, ...fields: (string | null)[]) {
   const term = query.trim().toLowerCase()
   return !term || fields.some(field => field?.toLowerCase().includes(term))
@@ -46,6 +70,19 @@ function changePostList() {
   postStatus.value = ''
   posts.value = []
   return runPosts()
+}
+function resetPostFilters() {
+  postQuery.value = ''
+  postStatus.value = ''
+  if (!drafts.value) {
+    drafts.value = true
+    return changePostList()
+  }
+}
+function resetAccountFilters() {
+  accountQuery.value = ''
+  accountRole.value = ''
+  accountStatus.value = ''
 }
 function removePost(post: ManagedPost) {
   if (!window.confirm(`“${post.title}” 글을 삭제하시겠습니까?`)) return
@@ -103,6 +140,7 @@ onMounted(() => {
         <label>목록<select v-model="drafts" :disabled="postRequest.busy" @change="changePostList"><option :value="true">Agent 검토 대기</option><option :value="false">전체 운영글</option></select></label>
         <label>글 검색<input v-model="postQuery" type="search" placeholder="제목 또는 작성자"></label>
         <label>게시 상태<select v-model="postStatus"><option value="">전체 상태</option><option v-for="(label, state) in publicationLabels" :key="state" :value="state">{{ label }}</option></select></label>
+        <button v-if="!drafts || postQuery || postStatus" type="button" :disabled="postRequest.busy" @click="resetPostFilters">글 검색 조건 초기화</button>
       </div>
       <p v-if="postRequest.notice" role="status">{{ postRequest.notice }}</p>
       <p v-if="postRequest.error" class="error" role="alert">{{ postRequest.error }} <button @click="runPosts()">글 목록 다시 불러오기</button></p>
@@ -126,6 +164,7 @@ onMounted(() => {
         <label>계정 검색<input v-model="accountQuery" type="search" placeholder="아이디 또는 이메일"></label>
         <label>계정 역할<select v-model="accountRole"><option value="">전체 역할</option><option v-for="(label, key) in roles" :key="key" :value="key">{{ label }}</option></select></label>
         <label>계정 상태<select v-model="accountStatus"><option value="">전체 상태</option><option v-for="(label, key) in statuses" :key="key" :value="key">{{ label }}</option></select></label>
+        <button v-if="accountQuery || accountRole || accountStatus" type="button" @click="resetAccountFilters">계정 검색 조건 초기화</button>
       </div>
       <p v-if="accountRequest.notice" role="status">{{ accountRequest.notice }}</p>
       <p v-if="accountRequest.error" class="error" role="alert">{{ accountRequest.error }} <button @click="runAccounts()">계정 목록 다시 불러오기</button></p>
@@ -170,6 +209,7 @@ onMounted(() => {
 .admin-section h2 { margin-top: 0; scroll-margin-top: 16px; }
 .admin-filters { padding: 12px; border-radius: 8px; background: #f6f7f6; }
 .admin-filters label { display: grid; flex: 1 1 180px; min-width: 0; gap: 6px; font-size: .875rem; }
+.admin-filters button { align-self: end; }
 .admin-filters input, .admin-filters select, .issued-token input { min-width: 0; width: 100%; padding: 8px; border: 1px solid #bcbcbc; border-radius: 6px; font: inherit; background: #fff; }
 .list-count { color: #525252; font-size: .875rem; }
 .admin-posts article, .account-list li { border-bottom: 1px solid #dedede; overflow-wrap: anywhere; }
