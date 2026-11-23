@@ -48,7 +48,7 @@ async function upload(files: File[], position?: number) {
 }
 onMounted(() => {
   view = new EditorView({ parent: host.value, state: EditorState.create({ doc: props.modelValue, extensions: [
-    basicSetup, markdown({ codeLanguages: languages }), placeholder(props.placeholder), EditorView.lineWrapping, EditorView.theme({}, { dark: true }),
+    basicSetup, markdown({ codeLanguages: languages }), placeholder(props.placeholder), EditorView.lineWrapping,
     EditorView.contentAttributes.of({ 'aria-label': 'Markdown 원문' }),
     keymap.of([{ key: 'Mod-b', run: () => { format('bold'); return true } }, { key: 'Mod-i', run: () => { format('italic'); return true } }, indentWithTab]),
     EditorView.updateListener.of(update => { if (update.docChanged) emit('update:modelValue', update.state.doc.toString()) }),

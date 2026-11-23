@@ -57,14 +57,13 @@ it('keeps the editor off home and navigates to a blank create page for ADMIN', a
   expect(host.querySelector('.md-preview article')?.innerHTML).toBe('')
   expect(host.querySelector<HTMLInputElement>('.md-title input')?.value).toBe('')
 })
-it('supports direct create navigation and category/tag input while loading categories', async () => {
+it('supports direct create navigation and the uncategorized option', async () => {
   const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [] }))); vi.stubGlobal('fetch', fetchMock)
   const { host } = await mountApp('/posts/create')
   const category = host.querySelector<HTMLInputElement>('#post-category')!
-  const tags = host.querySelector<HTMLInputElement>('#post-tags')!
-  expect(category.value).toBe(''); expect(host.querySelector('#post-category option')?.textContent).toBe('미분류'); expect(tags.value).toBe('')
-  tags.value = 'Vue, TypeScript, Vue, '; tags.dispatchEvent(new Event('input'))
-  await vi.waitFor(() => expect(Array.from(host.querySelectorAll('.post-tags li')).map(el => el.textContent)).toEqual(['#Vue', '#TypeScript']))
+  expect(category.value).toBe('')
+  expect(host.querySelector('#post-category option')?.textContent).toBe('미분류')
+  expect(host.querySelector('#post-tags')).toBeNull()
   const editor = EditorView.findFromDOM(host.querySelector<HTMLElement>('.cm-editor')!)!
   editor.dispatch({ changes: { from: 0, insert: '# 새 글' } })
   await vi.waitFor(() => expect(host.querySelector('.cm-placeholder')).toBeNull())

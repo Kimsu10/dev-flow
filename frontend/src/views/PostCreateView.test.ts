@@ -57,7 +57,7 @@ it('keeps server-save success visible when draft removal is denied', async () =>
   typeTitle(host, 'Saved')
   vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('denied') })
   host.querySelector<HTMLButtonElement>('.test-save')!.click()
-  await vi.waitFor(() => expect(host.textContent).toContain('서버에 저장했습니다. 브라우저 임시저장은 삭제하지 못했습니다.'))
+  await vi.waitFor(() => expect(host.textContent).toContain('미발행 상태로 저장했습니다. 브라우저 임시저장은 삭제하지 못했습니다.'))
   const unload = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(unload)
   expect(unload.defaultPrevented).toBe(false)
 })
@@ -121,7 +121,7 @@ it('retains applied AI question and sources through edits, local restore and ser
   expect(restored.host.querySelector<HTMLTextAreaElement>('.test-markdown')?.value).toBe('# 작성자가 편집한 본문')
   restored.host.querySelector<HTMLButtonElement>('.test-save')!.click()
   await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ aiDraftId: draft.id, contentMarkdown: '# 작성자가 편집한 본문' })))
-  await vi.waitFor(() => expect(restored.host.textContent).toContain('서버에 저장했습니다.'))
+  await vi.waitFor(() => expect(restored.host.textContent).toContain('미발행 상태로 저장했습니다.'))
   app!.unmount(); app = undefined; document.body.innerHTML = ''
   vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : path.startsWith('/admin/ai-drafts/') ? draft : { ...post(1), contentMarkdown: '# 작성자가 편집한 본문', aiDraftId: draft.id })
   const reloaded = await mount()
@@ -129,28 +129,70 @@ it('retains applied AI question and sources through edits, local restore and ser
   expect(reloaded.host.querySelector('.applied-ai a')?.getAttribute('href')).toBe(draft.sources[0]!.url)
 })
 
-it('defaults new saves to private, sends a chosen publication instant, and preserves choices in local drafts', async () => {
+it('saves privately by default and explicitly schedules public visibility for the chosen date', async () => {
+  const scheduled = new Date(Date.now() + 86400000)
+  const localDate = new Date(scheduled.getTime() - scheduled.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  const publishedAt = new Date(localDate).toISOString()
+  vi.mocked(api).mockImplementation(async (path, method) => {
+    if (path === '/categories') return []
+    return { ...post(1), status: 'PUBLISHED', visibility: method === 'POST' ? 'PRIVATE' : 'PUBLIC', publishedAt }
+  })
   const { host } = await mount('/posts/create')
-  expect(host.querySelector<HTMLSelectElement>('#post-visibility')?.value).toBe('PRIVATE')
   expect(host.querySelector<HTMLInputElement>('#post-publication')?.value).toBe('')
   typeTitle(host, 'New dated post')
   const date = host.querySelector<HTMLInputElement>('#post-publication')!
-  date.value = '2020-03-04T12:30'; date.dispatchEvent(new Event('input'))
-  const visibility = host.querySelector<HTMLSelectElement>('#post-visibility')!
-  visibility.value = 'PUBLIC'; visibility.dispatchEvent(new Event('change'))
+  date.value = localDate; date.dispatchEvent(new Event('input'))
   window.dispatchEvent(new Event('pagehide'))
-  const draft = JSON.parse(localStorage.getItem('devflow-editor-5-new')!)
-  expect(draft.visibility).toBe('PUBLIC');expect(draft.publishedInput).toBe('2020-03-04T12:30')
-  host.querySelector<HTMLButtonElement>('.test-save')!.click()
-  await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts','POST',expect.objectContaining({ visibility: 'PUBLIC', publishedAt: new Date('2020-03-04T12:30').toISOString() })))
+  expect(JSON.parse(localStorage.getItem('devflow-editor-5-new')!).publishedInput).toBe(localDate)
+  const button = (label: string) => Array.from(host.querySelectorAll('button')).find(b => b.textContent?.trim() === label)!
+  button('비공개 저장').click()
+  await vi.waitFor(() => expect(host.textContent).toContain('비공개로 저장했습니다.'))
+  expect(api).toHaveBeenCalledWith('/admin/posts', 'POST', expect.objectContaining({ visibility: 'PRIVATE', publishedAt }))
+  button('예약 공개').click()
+  await vi.waitFor(() => expect(host.textContent).toContain('예약 공개로 저장했습니다.'))
+  expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ visibility: 'PUBLIC', publishedAt: undefined }))
 })
 
 it('loads existing visibility and omits untouched publication time to preserve database precision', async () => {
-  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(1), visibility: 'PUBLIC', publishedAt: '2016-01-02T03:04:05.123456Z' })
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(1), status: 'PUBLISHED', visibility: 'PUBLIC', publishedAt: '2016-01-02T03:04:05.123456Z' })
   const { host } = await mount()
-  expect(host.querySelector<HTMLSelectElement>('#post-visibility')?.value).toBe('PUBLIC')
   expect(host.querySelector<HTMLInputElement>('#post-publication')?.value).not.toBe('')
   typeTitle(host, 'Date untouched')
   host.querySelector<HTMLButtonElement>('.test-save')!.click()
   await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1','PUT',expect.objectContaining({ visibility: 'PUBLIC', publishedAt: undefined })))
+})
+
+it('keeps an Agent draft in review unless the editor explicitly approves publication', async () => {
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(1), status: 'IN_REVIEW', authorId: 7, visibility: 'PUBLIC' })
+  const { host } = await mount()
+  typeTitle(host, 'Edited draft')
+  Array.from(host.querySelectorAll('button')).find(button => button.textContent === '검토 상태로 저장')!.click()
+  await vi.waitFor(() => expect(host.textContent).toContain('검토 대기 상태로 저장했습니다.'))
+  expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ visibility: undefined }))
+  expect(host.querySelector('.publication-primary')?.textContent).toBe('승인 후 공개')
+})
+
+it('requires confirmation before publishing the AI question and sources', async () => {
+  const draft = {
+    id: '11111111-1111-4111-8111-111111111111',
+    question: '공개 확인 질문',
+    contentMarkdown: '# AI 초안',
+    sources: [{ title: '자료', url: 'https://example.com/docs' }],
+  }
+  vi.mocked(api).mockImplementation(async (path, method) => {
+    if (path === '/categories') return []
+    if (path.startsWith('/admin/ai-drafts/')) return draft
+    return { ...post(1), status: 'PUBLISHED', visibility: method === 'PUT' ? 'PUBLIC' : 'PRIVATE', aiDraftId: draft.id }
+  })
+  const { host } = await mount()
+  const publish = host.querySelector<HTMLButtonElement>('.publication-primary')!
+  publish.click()
+  await nextTick()
+  expect(host.textContent).toContain('AI 원래 질문과 출처의 공개 여부를 확인하세요.')
+  expect(vi.mocked(api).mock.calls.some(([, method]) => method === 'PUT')).toBe(false)
+  const consent = host.querySelector<HTMLInputElement>('.publication-consent input')!
+  consent.checked = true
+  consent.dispatchEvent(new Event('change'))
+  publish.click()
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ visibility: 'PUBLIC', aiDraftId: draft.id })))
 })

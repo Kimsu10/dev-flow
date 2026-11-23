@@ -110,15 +110,15 @@ try {
   await command('Input.insertText', { text: '# Browser review\n\n**Verified Markdown**' })
   await waitFor("document.querySelector('.md-preview strong')?.textContent === 'Verified Markdown'")
   await waitFor("Object.keys(localStorage).some(key => key.startsWith('devflow-editor-'))")
-  await evaluate("document.querySelectorAll('.md-actions button')[0].click()")
-  await waitFor("[...document.querySelectorAll('[role=status]')].some(el => el.textContent.includes('서버에 저장'))")
-  await evaluate("document.querySelectorAll('.md-actions button')[1].click()")
-  await waitFor("[...document.querySelectorAll('[role=status]')].some(el => el.textContent.includes('발행했습니다'))")
-  await navigate('/admin', "document.querySelector('.admin-posts article') !== null")
-  await evaluate("document.querySelector('.admin-posts h2 a').click()")
+  await evaluate("[...document.querySelectorAll('.md-actions button')].find(button => button.textContent.trim() === '비공개 저장').click()")
+  await waitFor("[...document.querySelectorAll('[role=status]')].some(el => el.textContent.includes('비공개로 저장했습니다'))")
+  await evaluate("[...document.querySelectorAll('.md-actions button')].find(button => button.textContent.trim() === '공개하기').click()")
+  await waitFor("[...document.querySelectorAll('[role=status]')].some(el => el.textContent.includes('독자가 볼 수 있도록 공개했습니다'))")
+  await navigate('/my-posts', "document.querySelector('.my-posts article') !== null")
+  await evaluate("[...document.querySelectorAll('.my-posts h2 a')].find(link => link.textContent.trim() === 'Browser QA post').click()")
   await waitFor("document.querySelector('.md-title input')?.value === 'Browser QA post'")
-  await navigate('/admin', "document.querySelector('.admin-posts article') !== null")
-  await reload("document.querySelector('.admin-posts article') !== null && document.querySelector('a[href=\"/posts/create\"]') !== null")
+  await navigate('/my-posts', "document.querySelector('.my-posts article') !== null")
+  await reload("document.querySelector('.my-posts article') !== null && document.querySelector('a[href=\"/posts/create\"]') !== null")
   assert.equal(await evaluate("document.querySelector('a[href=\"/posts/create\"]') !== null"), true)
   // Create a service account through the real API; secrets stay in browser memory.
   await evaluate(`(async () => {
@@ -133,7 +133,7 @@ try {
     const r=await fetch('/api/agent/posts/drafts',{method:'POST',headers:{Authorization:'Bearer '+t.token,'Content-Type':'application/json'},body:JSON.stringify({title:'Agent review QA',contentMarkdown:'# AI draft',status:'IN_REVIEW'})});
     if(!r.ok) throw new Error('Agent QA status '+r.status); window.qaDraft=(await r.json()).data.id;
   })()`)
-  await reload("[...document.querySelectorAll('.admin-posts article')].some(el => el.textContent.includes('Agent review QA') && el.textContent.includes('SYSTEM'))")
+  await navigate('/admin', "[...document.querySelectorAll('.admin-posts article')].some(el => el.textContent.includes('Agent review QA') && el.textContent.includes('검토 대기'))")
   for(const [label,width] of [['desktop',1440],['mobile',390]]) {
     await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false})
     assert.equal(await evaluate('document.documentElement.scrollWidth > innerWidth'),false)

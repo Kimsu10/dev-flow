@@ -27,7 +27,6 @@ async function generate() {
 
 <template>
   <section class="ai-draft-panel" aria-label="AI 글 작성">
-    <p>기본은 직접 작성입니다. 필요한 경우 AI 조사 초안을 검토해 사용할 수 있습니다.</p>
     <button type="button" :aria-expanded="open" @click="open = !open">{{ open ? 'AI 초안 패널 닫기' : 'AI 글 작성' }}</button>
     <div v-show="open">
       <p id="ai-disclosure">질문은 AI 서비스에 전달됩니다. 초안을 편집기에 적용하고 글을 발행하면 원래 질문과 AI 작성 안내, 출처 링크가 공개됩니다. 질문에 개인정보나 비밀정보를 입력하지 마세요.</p>
@@ -50,9 +49,10 @@ async function generate() {
 </template>
 
 <style scoped>
-.ai-draft-panel { margin: 20px 0; padding: 18px; border: 1px solid #d4d4d4; border-radius: 8px; }
+.ai-draft-panel { margin: 16px 0; }
+.ai-draft-panel > div { margin-top: 10px; padding: 16px; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; }
 .ai-draft-panel form { display: grid; gap: 12px; margin: 16px 0; }
-textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 8px; padding: 10px; font: inherit; resize: vertical; }
+textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 8px; padding: 10px; border: 1px solid #d4d4d4; border-radius: 6px; background: #fff; color: inherit; font: inherit; resize: vertical; }
 .ai-consent { display: flex; align-items: center; gap: 8px; }
 .ai-preview { height: 420px; overflow: auto; }
 .ai-preview :deep(.md-preview) { height: 100%; }
