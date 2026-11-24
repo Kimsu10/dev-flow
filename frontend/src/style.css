@@ -20,6 +20,3 @@ button:focus-visible { outline: 2px solid #171717; outline-offset: 4px; }
 .auth-form input, .auth-form select { box-sizing: border-box; width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #dedede; background: #fff; color: #171717; }
 .admin-posts article { padding: 18px 0; border-bottom: 1px solid #334155; }
 .admin-posts button, .blog-page li button { margin: 4px 8px 4px 0; }
-
-.blog-header nav { flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 640px) { .blog-header { height: auto; min-height: 78px; padding-block: 16px; align-items: flex-start; gap: 14px; } .blog-header nav { gap: 8px 14px; } .blog-header nav button { padding: 5px 8px; } }

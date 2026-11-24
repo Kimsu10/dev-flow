@@ -12,7 +12,22 @@ async function signOut() { try { await logout() } catch { message.value = '로�
     <a class="skip-to-content" href="#main-content">본문으로 바로 가기</a>
     <header class="blog-header">
       <RouterLink class="blog-brand" to="/" aria-label="DevFlow 홈"><span class="brand-mark" aria-hidden="true">/</span>DevFlow<span class="brand-dot">.</span></RouterLink>
-      <nav aria-label="주요 메뉴"><RouterLink to="/" exact-active-class="is-current">Blog</RouterLink><RouterLink to="/posts">글 검색</RouterLink><template v-if="auth.user?.role === 'ADMIN'"><RouterLink to="/my-posts">내 글</RouterLink><RouterLink to="/admin">관리자</RouterLink><RouterLink to="/admin/analytics">Analytics</RouterLink><RouterLink to="/posts/create" class="write-link outlined-link">글 작성</RouterLink></template><button v-if="auth.user" @click="signOut">로그아웃</button><RouterLink v-else-if="auth.ready" to="/login">로그인</RouterLink></nav>
+      <div class="blog-header-controls">
+        <nav class="blog-primary-nav" aria-label="주요 메뉴">
+          <RouterLink to="/" exact-active-class="is-current">Blog</RouterLink>
+          <RouterLink to="/posts" exact-active-class="is-current">글 검색</RouterLink>
+          <template v-if="auth.user?.role === 'ADMIN'">
+            <RouterLink to="/my-posts" exact-active-class="is-current">내 글</RouterLink>
+            <RouterLink to="/admin" exact-active-class="is-current">관리자</RouterLink>
+            <RouterLink to="/admin/analytics" exact-active-class="is-current">Analytics</RouterLink>
+          </template>
+        </nav>
+        <div v-if="auth.user || auth.ready" class="blog-account-actions" role="group" aria-label="작성 및 계정">
+          <RouterLink v-if="auth.user?.role === 'ADMIN'" to="/posts/create" class="write-link outlined-link">글 작성</RouterLink>
+          <button v-if="auth.user" type="button" @click="signOut">로그아웃</button>
+          <RouterLink v-else-if="auth.ready" class="outlined-link" to="/login">로그인</RouterLink>
+        </div>
+      </div>
     </header>
     <main id="main-content" class="blog-page" tabindex="-1"><p v-if="message" role="alert">{{ message }}</p><slot /></main>
     <AnalyticsConsent v-if="!auth.user || auth.user.role === 'USER'" />
