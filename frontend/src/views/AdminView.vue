@@ -130,7 +130,6 @@ onMounted(() => {
       <nav class="admin-links" aria-label="관리자 메뉴">
         <a class="outlined-link" href="#admin-posts-heading">게시글 운영</a>
         <a class="outlined-link" href="#admin-accounts-heading">계정 관리</a>
-        <RouterLink class="outlined-link" to="/admin/analytics">방문 통계</RouterLink>
         <RouterLink class="outlined-link" to="/my-posts">내 글</RouterLink>
       </nav>
     </header>
@@ -197,6 +196,11 @@ onMounted(() => {
           <button :disabled="accountRequest.busy">계정 생성</button>
         </form>
       </details>
+    </section>
+    <section class="admin-section admin-analytics" aria-labelledby="admin-analytics-heading">
+      <h2 id="admin-analytics-heading">Analytics</h2>
+      <p>블로그 방문 추이와 게시글별 통계를 확인합니다.</p>
+      <RouterLink class="outlined-link" to="/admin/analytics">Analytics 열기</RouterLink>
     </section>
   </BlogShell>
 </template>

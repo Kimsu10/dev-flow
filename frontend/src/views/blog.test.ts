@@ -118,7 +118,7 @@ it('submits search, resets page and preserves search across category navigation'
   const input = host.querySelector<HTMLInputElement>('#post-search')!
   input.value = ' Java & Vue '
   input.dispatchEvent(new Event('input', { bubbles: true }))
-  host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  host.querySelector('.post-search')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
   await vi.waitFor(() => expect(router.currentRoute.value.query.q).toBe('Java & Vue'))
   expect(router.currentRoute.value.query.page).toBeUndefined()
   await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('q=Java+%26+Vue'))).toBe(true))
@@ -135,6 +135,25 @@ it('distinguishes empty search results from an empty blog', async () => {
   const { host } = await mount('/posts?q=missing')
   await vi.waitFor(() => expect(host.textContent).toContain('검색 결과가 없습니다'))
   expect(host.textContent).not.toContain('아직 발행된 글이 없습니다')
+})
+
+it('searches from home into the posts API and displays matching articles', async () => {
+  const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve(response(url === '/api/blog/home' ? home
+    : url === '/api/categories' ? [category] : { items: [post], page: 0, size: 9, totalElements: 1, totalPages: 1 })))
+  vi.stubGlobal('fetch', fetchMock)
+  const { host, router } = await mount('/')
+  await vi.waitFor(() => expect(host.querySelector('.post-card')).not.toBeNull())
+  expect(host.querySelector('.blog-header .blog-primary-nav a[href="/"]')).toBeNull()
+  const input = host.querySelector<HTMLInputElement>('#header-post-search')!
+  input.value = '개발 기록';input.dispatchEvent(new Event('input', { bubbles: true }))
+  host.querySelector('.blog-header-search')!.dispatchEvent(new Event('submit', { cancelable: true }))
+  await vi.waitFor(() => expect(router.currentRoute.value.query.q).toBe('개발 기록'))
+  expect(router.currentRoute.value.path).toBe('/posts')
+  await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('q=%EA%B0%9C%EB%B0%9C+%EA%B8%B0%EB%A1%9D'))).toBe(true))
+  await vi.waitFor(() => expect(host.querySelector('.post-search input')?.getAttribute('id')).toBe('post-search'))
+  expect(host.querySelector<HTMLInputElement>('#post-search')?.value).toBe('개발 기록')
+  expect(host.querySelectorAll('.post-card')).toHaveLength(1)
+  expect(host.querySelector('.post-card-title')?.textContent).toBe(post.title)
 })
 
 it('clears a search within its category and resets all filters from an empty list', async () => {

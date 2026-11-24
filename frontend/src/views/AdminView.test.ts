@@ -39,6 +39,13 @@ it('filters both queues and loads accounts independently when post loading fails
   app = createApp(AdminView).use(router)
   app.mount(host)
 
+  const accountsSection = host.querySelector('[aria-labelledby="admin-accounts-heading"]')!
+  const analyticsSection = host.querySelector('[aria-labelledby="admin-analytics-heading"]')!
+  expect(accountsSection.nextElementSibling).toBe(analyticsSection)
+  expect(analyticsSection.querySelector('a')?.getAttribute('href')).toBe('/admin/analytics')
+  expect(host.querySelector('.blog-header a[href="/admin/analytics"]')).toBeNull()
+  expect(host.querySelector('.admin-links a[href="/admin/analytics"]')).toBeNull()
+
   const list = () => host.querySelector('.admin-posts')?.textContent
   const accountList = () => host.querySelector('.account-list')?.textContent
   await vi.waitFor(() => expect(host.querySelector('[role="alert"]')?.textContent).toContain('글 요청 실패'))

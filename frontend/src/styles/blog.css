@@ -6,6 +6,7 @@
 .brand-mark { display: inline-flex; justify-content: center; align-items: center; width: 25px; height: 27px; margin-right: 10px; color: #fff; background: #1e4434; border-radius: 5px; font-size: 22px; font-weight: 500; }
 .brand-dot { color: #648975; }
 .blog-header-controls { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: flex-end; gap: 20px; }
+.blog-header-search { flex: 1 1 180px; min-width: 0; max-width: 260px; font-size: 13px; }
 .blog-primary-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; font-weight: 550; }
 .blog-primary-nav > a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 12px; border-radius: 6px; white-space: nowrap; line-height: 1.4; color: #606060; }
 .blog-primary-nav > a:hover { background: #f6f7f8; color: #171717; }
@@ -95,6 +96,7 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
   .blog-shell { padding-inline: 22px; }
   .blog-header { min-height: 78px; padding-block: 16px; }
   .blog-header-controls { flex-direction: column; align-items: stretch; gap: 12px; }
+  .blog-header-search { flex: none; max-width: none; width: 100%; }
   .blog-primary-nav { justify-content: flex-start; }
   .blog-account-actions { width: 100%; padding-left: 0; padding-top: 12px; border-left: 0; border-top: 1px solid #e5e5e5; }
   .blog-account-actions > a, .blog-account-actions > button { flex: 1; }
@@ -115,10 +117,6 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) { .post-card .post-thumbnail { transition: none; } }
 
 .post-search { margin: 2rem 0; }
-.post-search label { display: block; margin-bottom: .6rem; font-weight: 600; }
-.post-search > div { display: flex; gap: .6rem; }
-.post-search input { flex: 1; min-width: 0; padding: .85rem; border: 1px solid #aaa; border-radius: .4rem; font: inherit; background: transparent; color: inherit; }
-.post-search button { padding: .7rem 1.3rem; cursor: pointer; font: inherit; }
 .reading-time { font-size: .85rem; color: #686868; }
 .article-toc { margin: 2rem 0; padding: 1.2rem 1.5rem; border: 1px solid #d0d0d0; border-radius: .5rem; }
 .article-toc summary { cursor: pointer; font-weight: 600; }

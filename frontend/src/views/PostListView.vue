@@ -5,13 +5,14 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import BlogShell from '../components/blog/BlogShell.vue'
 import PostCard from '../components/blog/PostCard.vue'
 import RequestState from '../components/blog/RequestState.vue'
+import PostSearchField from '../components/blog/PostSearchField.vue'
 import { getCategories, getPosts } from '../api/blog'
 import { useBlogResource } from '../composables/useBlogResource'
 const route = useRoute()
 const router = useRouter()
 const search = computed(() => typeof route.query.q === 'string' ? route.query.q : '')
 const searchInput = ref(search.value)
-const searchField = ref<HTMLInputElement | null>(null)
+const searchField = ref<InstanceType<typeof PostSearchField> | null>(null)
 watch(search, value => { searchInput.value = value })
 function submitSearch() {
   router.push({ name: 'post-list', query: { ...route.query, q: searchInput.value.trim() || undefined, page: undefined } })
@@ -41,9 +42,8 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value))
 <template>
   <BlogShell>
     <header class="list-intro"><RouterLink class="text-back" to="/">← Blog</RouterLink><h1>{{ title }}</h1><p class="blog-description">차근차근 쌓아가는 개발의 기록</p></header>
-    <form class="post-search" role="search" @submit.prevent="submitSearch">
-      <label for="post-search">게시글 검색</label>
-      <div><input id="post-search" ref="searchField" v-model="searchInput" type="search" maxlength="100" placeholder="제목, 요약, 본문에서 검색" /><button type="submit">검색</button></div>
+    <form class="post-search" role="search" aria-label="게시글 목록 검색" @submit.prevent="submitSearch">
+      <PostSearchField id="post-search" ref="searchField" v-model="searchInput" />
       <div v-if="search || categoryId" class="post-search-actions">
         <button v-if="search" type="button" @click="clearSearch">검색어 지우기</button>
         <button v-if="categoryId" type="button" @click="resetFilters">검색 조건 초기화</button>
@@ -68,6 +68,6 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value))
 </template>
 
 <style scoped>
-.post-search-actions { flex-wrap: wrap; margin-top: .6rem; }
+.post-search-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .6rem; }
 .post-search-actions button { padding: .45rem .75rem; font-size: .875rem; }
 </style>
