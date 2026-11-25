@@ -65,5 +65,11 @@ public class AccountService {
   String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
   mapper.revoke(id);mapper.token(id,hash(token));return token;
  }
- @Transactional public void revoke(long id){mapper.revoke(id);}
+ @Transactional public void revoke(long id){
+  // Use the same account lock as issuance and disabling so a completed revocation covers a concurrent rotation.
+  Account a=mapper.lock(id);
+  if(a==null) throw new ApiException(HttpStatus.NOT_FOUND,"ACCOUNT_NOT_FOUND","Account not found");
+  if(!a.role().equals("SYSTEM")) throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_ROLE","Service tokens require SYSTEM");
+  mapper.revoke(id);
+ }
 }

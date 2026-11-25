@@ -68,3 +68,9 @@ it('recognizes post conflicts without displaying arbitrary server error text', a
  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'POST_CONFLICT', message: 'internal detail' } }), { status: 409 })))
  await expect(api('/admin/posts/1')).rejects.toMatchObject({ status: 409, code: 'POST_CONFLICT', message: expect.stringContaining('다른 곳에서 수정된 글') })
 })
+
+it('handles a generic login rate response without displaying server internals', async () => {
+ vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'LOGIN_RATE_LIMITED', message: 'internal detail' } }), { status: 429 })))
+ await expect(api('/auth/login')).rejects.toMatchObject({ status: 429, code: 'LOGIN_RATE_LIMITED', message: expect.stringContaining('잠시 후') })
+ expect(auth.user).toBeNull()
+})
