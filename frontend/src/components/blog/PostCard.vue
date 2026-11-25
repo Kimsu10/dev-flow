@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import ThumbnailImage from './ThumbnailImage.vue'
 import type { PostSummary } from '../../types/blog'
-const props = defineProps<{ post: PostSummary; eager?: boolean }>()
+const props = defineProps<{ post: PostSummary; eager?: boolean; compact?: boolean }>()
 const date = computed(() => props.post.publishedAt || props.post.createdAt)
 const dateLabel = computed(() => {
   const value = new Date(date.value)
@@ -20,7 +20,7 @@ const dateLabel = computed(() => {
       <div class="post-card-copy">
         <time class="post-date" :datetime="date">{{ dateLabel }}</time>
         <h3 class="post-card-title">{{ post.title }}</h3>
-        <p class="post-card-summary">{{ post.summary }}</p>
+        <p v-if="!compact" class="post-card-summary">{{ post.summary }}</p>
       </div>
     </RouterLink>
   </article>

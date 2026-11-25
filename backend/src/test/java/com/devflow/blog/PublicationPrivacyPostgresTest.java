@@ -132,6 +132,58 @@ class PublicationPrivacyPostgresTest {
         assertEquals(futureId,mine.get(0).path("id").asLong());assertEquals(secretId,mine.get(1).path("id").asLong());
     }
 
+    @Test void explicitPreviewNeverPublishesDraftsOrScheduledPostsAndRequiresManagementPermission() throws Exception {
+        for (var p : List.of(body("draft preview",null,null),body("scheduled preview","PUBLIC","2099-01-01T00:00:00Z"))) {
+            var saved=data(write(post("/api/admin/posts"),p,author));long id=saved.path("id").asLong();
+            String path="/api/posts/"+id;
+            read(path,author).andExpect(status().isNotFound());
+            for(Actor actor:Arrays.asList(null,reader))read(path+"?preview=true",actor).andExpect(status().isNotFound());
+            for(Actor actor:List.of(author,other))read(path+"?preview=true",actor).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(saved.path("status").asText()))
+                .andExpect(jsonPath("$.data.canEdit").value(true)).andExpect(jsonPath("$.data.canDelete").value(true));
+            assertEquals(saved,data(read("/api/admin/posts/"+id,author)));
+        }
+        long privateId=data(write(post("/api/admin/posts"),body("private","PRIVATE",null),author)).path("id").asLong();
+        read("/api/posts/"+privateId+"?preview=true",other).andExpect(status().isNotFound());
+    }
+
+    @Test void detailManagementFlagsAndSoftDeleteFollowExistingServerPermissions() throws Exception {
+        long id=data(write(post("/api/admin/posts"),body("delete test","PUBLIC","2020-01-01T00:00:00Z"),author)).path("id").asLong();
+        for(Actor actor:Arrays.asList(null,reader))read("/api/posts/"+id,actor).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.canEdit").value(false)).andExpect(jsonPath("$.data.canDelete").value(false));
+        read("/api/posts/"+id,other).andExpect(status().isOk()).andExpect(jsonPath("$.data.canDelete").value(true));
+        mvc.perform(delete("/api/admin/posts/"+id).with(csrf())).andExpect(status().isUnauthorized());
+        write(delete("/api/admin/posts/"+id),null,reader).andExpect(status().isForbidden());
+        write(delete("/api/admin/posts/"+id),null,other).andExpect(status().isOk());
+        assertNotNull(jdbc.queryForObject("SELECT deleted_at FROM blog.posts WHERE id=?",OffsetDateTime.class,id));
+        read("/api/posts/"+id+"?preview=true",author).andExpect(status().isNotFound());
+        assertAbsent(data(read("/api/admin/posts/mine",author)),id);
+    }
+
+    @Test void relatedPagesExcludeCurrentPrivateFutureAndDeletedPosts() throws Exception {
+        String key=UUID.randomUUID().toString();
+        long category=jdbc.queryForObject("INSERT INTO blog.categories(name,slug) VALUES(?,?) RETURNING id",Long.class,key,key);
+        var ids=new ArrayList<Long>();
+        for(int i=0;i<8;i++) {
+            var p=body("related-"+i,"PUBLIC","2020-01-01T00:00:00Z");p.put("categoryId",category);
+            ids.add(data(write(post("/api/admin/posts"),p,author)).path("id").asLong());
+        }
+        long current=ids.get(0),hidden=ids.get(1),future=ids.get(2),deleted=ids.get(3);
+        jdbc.update("UPDATE blog.posts SET visibility='PRIVATE' WHERE id=?",hidden);
+        jdbc.update("UPDATE blog.posts SET published_at='2099-01-01Z' WHERE id=?",future);
+        write(delete("/api/admin/posts/"+deleted),null,author).andExpect(status().isOk());
+        String url="/api/posts/"+current+"/related?size=3&page=";
+        var first=data(read(url+0,null));var second=data(read(url+1,null));
+        assertEquals(4,first.path("totalElements").asInt());assertEquals(2,first.path("totalPages").asInt());
+        assertEquals(3,first.path("items").size());assertEquals(1,second.path("items").size());
+        var seen=new HashSet<Long>();
+        for(var page:List.of(first,second))for(var item:page.path("items"))assertTrue(seen.add(item.path("id").asLong()));
+        assertEquals(new HashSet<>(ids.subList(4,8)),seen);
+        assertEquals(0,data(read(url+2,null)).path("items").size());
+        read(url+"-1",null).andExpect(status().isBadRequest());
+        read("/api/posts/"+hidden+"/related?preview=true",other).andExpect(status().isNotFound());
+    }
+
     @Test void existingStyleRowsKeepDatesStatusAndDefaultPublicVisibility() throws Exception {
         long id=jdbc.queryForObject("INSERT INTO blog.posts(slug,title,content_markdown,status,created_at,published_at) VALUES(?,?,'body','PUBLISHED','2010-01-01Z','2012-01-01Z') RETURNING id",Long.class,UUID.randomUUID().toString(),"legacy");
         var old=data(read("/api/admin/posts/"+id,author));

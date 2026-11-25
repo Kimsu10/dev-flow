@@ -11,8 +11,8 @@ const emit = defineEmits<{ 'update:publishedInput': [value: string] }>()
 </template>
 
 <style scoped>
-.publication-fields { display: grid; gap: 6px; min-width: 0; }
-label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.publication-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+label { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 input { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--md-border); border-radius: 6px; background: var(--md-panel); color: var(--md-text); font: inherit; }
-small { font-size: 12px; line-height: 1.6; color: var(--md-muted); }
+small { flex: 1 1 220px; font-size: 12px; line-height: 1.6; color: var(--md-muted); }
 </style>

@@ -18,7 +18,7 @@ it('adds or reuses a category, emits immediate selection, and prevents duplicate
   app = createApp({ render: () => h(CategoryInput, { categories: categories.value, modelValue: selected.value,
     'onUpdate:modelValue': (id: number | null) => { selected.value = id }, onAdded: (c: Category) => { categories.value = [...categories.value.filter(p => p.id !== c.id), c] },
   }) }); app.mount(host)
-  button(host, '+ 카테고리 추가').click(); await nextTick()
+  host.querySelector<HTMLButtonElement>('[aria-label="카테고리 추가"]')!.click(); await nextTick()
   const input = host.querySelector<HTMLInputElement>('#new-category-name')!
   input.value = 'Vue'; input.dispatchEvent(new Event('input')); await nextTick()
   host.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))

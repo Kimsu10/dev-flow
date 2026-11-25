@@ -46,12 +46,29 @@ public class BlogService {
         return new PostPage(items, page, size, total, (total + size - 1) / size);
     }
     public PostDetail post(long id,Actor actor) {
-        var row = mapper.findPost(id,actor==null?null:actor.id());
+        return post(id,actor,false);
+    }
+    public PostDetail post(long id,Actor actor,boolean preview) {
+        boolean administrator=actor!=null && "ADMIN".equals(actor.role());
+        // A preview uses existing management read permission; it never changes publication state.
+        var row = mapper.findPost(id,actor==null?null:actor.id(),preview && administrator);
         if (row == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "게시글을 찾을 수 없습니다.");
         }
         var related = row.categoryId() == null ? List.<PostSummary>of()
             : mapper.findRelatedPosts(row.categoryId(), id).stream().map(PostSummary::from).toList();
-        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related, ai.attributionForPost(id), row.visibility());
+        return new PostDetail(PostSummary.from(row), row.contentMarkdown(), related, ai.attributionForPost(id), row.visibility(), row.status(), administrator, administrator);
+    }
+    public PostPage related(long id, Actor actor, boolean preview, int page, int size) {
+        if (page < 0 || size < 1 || size > 12) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Invalid related posts page");
+        }
+        boolean administrator = actor != null && "ADMIN".equals(actor.role());
+        var row = mapper.findPost(id, actor == null ? null : actor.id(), preview && administrator);
+        if (row == null) throw new ApiException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+        if (row.categoryId() == null) return new PostPage(List.of(), page, size, 0, 0);
+        long total = mapper.countRelated(row.categoryId(), id);
+        var items = mapper.findRelatedPage(row.categoryId(), id, size, (long) page * size).stream().map(PostSummary::from).toList();
+        return new PostPage(items, page, size, total, (total + size - 1) / size);
     }
 }

@@ -3,9 +3,11 @@
 .md-workspace * { box-sizing: border-box; }
 .md-header { display: flex; align-items: center; gap: 20px; padding: 22px; }
 .md-title { flex: 1; min-width: 0; color: var(--md-muted); font-size: 13px; font-weight: 600; }
-.md-title input { display: block; width: 100%; margin-top: 8px; padding: 10px 0; font: inherit; font-size: clamp(20px, 3vw, 28px); border: 0; border-bottom: 1px solid var(--md-border); background: transparent; color: var(--md-text); }
+.md-bottom-actions { padding: 18px 22px; border-top: 1px solid var(--md-border); }
+.md-title input { display: block; width: 100%; margin-top: 0; padding: 10px 0; font: inherit; font-size: clamp(20px, 3vw, 28px); border: 0; border-bottom: 1px solid var(--md-border); background: transparent; color: var(--md-text); }
 .md-actions, .md-view-controls, .md-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .md-view-controls { justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--md-border); }
+.md-control-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .md-mode-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .md-workspace button, .md-workspace select { font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--md-border); border-radius: 5px; background: var(--md-panel); color: var(--md-text); cursor: pointer; }
 .md-workspace button:hover:not(:disabled) { background: #e9eeeb; }

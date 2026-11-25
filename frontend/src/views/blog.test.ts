@@ -213,7 +213,9 @@ it('recovers unknown URLs with home and search links and an accessible main targ
 })
 
 it('offers API-backed related posts and replaces recommendations when navigating to a peer', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(response({
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(response(url.includes('/related?') ? {
+    items: url.includes('/124/') ? [] : [{ ...post, id: 124, title: 'Related article' }], page: 0, size: 3, totalElements: url.includes('/124/') ? 0 : 1, totalPages: url.includes('/124/') ? 0 : 1,
+  } : {
     post: { ...post, id: url.endsWith('/124') ? 124 : 123 }, contentMarkdown: '# Body',
     relatedPosts: url.endsWith('/124') ? [] : [{ ...post, id: 124, title: 'Related article' }],
   }))))
@@ -223,7 +225,7 @@ it('offers API-backed related posts and replaces recommendations when navigating
   host.querySelector<HTMLAnchorElement>('.related-posts a')!.click()
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/posts/124'))
   await vi.waitFor(() => expect(host.querySelector('.post-body')).not.toBeNull())
-  expect(host.querySelector('.related-posts')).toBeNull()
+  await vi.waitFor(() => expect(host.querySelector('.related-empty')?.textContent).toContain('다른 글이 없습니다.'))
   expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0 })
 })
 

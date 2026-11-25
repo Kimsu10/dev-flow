@@ -6,6 +6,8 @@ import App from '../App.vue'
 import { routes } from '../router'
 import { api, ApiError } from '../auth'
 
+vi.mock('./PostDetailView.vue', () => ({ default: { template: '<div class="test-detail">Detail</div>' } }))
+
 vi.mock('../auth', () => ({ api: vi.fn(), auth: { user: { id: 5, role: 'ADMIN' } }, restoreAuth: vi.fn(), ApiError: class extends Error {
   code?: string
   constructor(_status: number, code?: string) { super('Edit conflict'); this.code = code }
@@ -120,18 +122,10 @@ it('restores the draft base version so stale restored content cannot bypass conf
 
 it('retains applied AI question and sources through edits, local restore and server reload', async () => {
   const draft = { id: '11111111-1111-4111-8111-111111111111', question: '적용한 원래 질문', contentMarkdown: '# AI 초안', sources: [{ title: '자료', url: 'https://example.com/docs' }] }
+  localStorage.setItem('devflow-editor-5-1', JSON.stringify({ title: 'AI post', markdown: draft.contentMarkdown, aiAttribution: { draftId: draft.id, question: draft.question, sources: draft.sources } }))
   const { host } = await mount()
-  vi.mocked(api).mockResolvedValueOnce(draft)
-  const findButton = (label: string) => Array.from(host.querySelectorAll('button')).find(b => b.textContent === label)!
-  findButton('AI 글 작성').click(); await nextTick()
-  const question = host.querySelector<HTMLTextAreaElement>('#ai-question')!
-  question.value = draft.question; question.dispatchEvent(new Event('input'))
-  const consent = host.querySelector<HTMLInputElement>('input[type="checkbox"]')!
-  consent.checked = true; consent.dispatchEvent(new Event('change')); await nextTick()
-  host.querySelector('.ai-draft-panel form')!.dispatchEvent(new Event('submit'))
-  await vi.waitFor(() => expect(host.querySelector('.ai-draft-result')).not.toBeNull())
-  expect(host.querySelector<HTMLTextAreaElement>('.test-markdown')?.value).toBe('Body')
-  findButton('편집기에 적용').click(); await nextTick()
+  expect(host.querySelector('.ai-draft-panel')).toBeNull()
+  Array.from(host.querySelectorAll('button')).find(b => b.textContent === '로컬 임시저장 복원')!.click(); await nextTick()
   const body = host.querySelector<HTMLTextAreaElement>('.test-markdown')!
   body.value = '# 작성자가 편집한 본문'; body.dispatchEvent(new Event('input'))
   window.dispatchEvent(new Event('pagehide'))
@@ -153,7 +147,7 @@ it('retains applied AI question and sources through edits, local restore and ser
   expect(reloaded.host.querySelector('.applied-ai a')?.getAttribute('href')).toBe(draft.sources[0]!.url)
 })
 
-it('saves privately by default and explicitly schedules public visibility for the chosen date', async () => {
+it('saves privately by default and redirects to the created detail without publishing it', async () => {
   const scheduled = new Date(Date.now() + 86400000)
   const localDate = new Date(scheduled.getTime() - scheduled.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
   const publishedAt = new Date(localDate).toISOString()
@@ -161,7 +155,7 @@ it('saves privately by default and explicitly schedules public visibility for th
     if (path === '/categories') return []
     return { ...post(1), status: 'PUBLISHED', visibility: method === 'POST' ? 'PRIVATE' : 'PUBLIC', publishedAt }
   })
-  const { host } = await mount('/posts/create')
+  const { host, router } = await mount('/posts/create')
   expect(host.querySelector<HTMLInputElement>('#post-publication')?.value).toBe('')
   typeTitle(host, 'New dated post')
   const date = host.querySelector<HTMLInputElement>('#post-publication')!
@@ -170,10 +164,40 @@ it('saves privately by default and explicitly schedules public visibility for th
   expect(JSON.parse(localStorage.getItem('devflow-editor-5-new')!).publishedInput).toBe(localDate)
   const button = (label: string) => Array.from(host.querySelectorAll('button')).find(b => b.textContent?.trim() === label)!
   button('비공개 저장').click()
-  await vi.waitFor(() => expect(host.textContent).toContain('비공개로 저장했습니다.'))
+  await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/posts/1'))
   expect(api).toHaveBeenCalledWith('/admin/posts', 'POST', expect.objectContaining({ visibility: 'PRIVATE', publishedAt }))
-  button('예약 공개').click()
+  expect(localStorage.getItem('devflow-editor-5-new')).toBeNull()
+})
+
+it.each([
+  ['PUBLISHED', '2020-01-01T00:00:00Z', '/posts/12'],
+  ['PUBLISHED', '2099-01-01T00:00:00Z', '/posts/12?preview=true'],
+  ['DRAFT', null, '/posts/12?preview=true'],
+])('redirects a newly created %s post with its publication state intact', async (status, publishedAt, destination) => {
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(12), status, visibility: 'PUBLIC', publishedAt })
+  const { host, router } = await mount('/posts/create')
+  typeTitle(host, 'New post')
+  host.querySelector<HTMLButtonElement>('.publication-primary')!.click()
+  await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe(destination))
+  expect(api).toHaveBeenCalledWith('/admin/posts', 'POST', expect.objectContaining({ visibility: 'PUBLIC' }))
+})
+
+it('keeps a failed new save in the editor with a recoverable local draft', async () => {
+  const { host, router } = await mount('/posts/create')
+  typeTitle(host, 'Retry later')
+  vi.mocked(api).mockRejectedValueOnce(new Error('Save failed'))
+  host.querySelector<HTMLButtonElement>('.test-save')!.click()
+  await vi.waitFor(() => expect(host.textContent).toContain('Save failed'))
+  expect(router.currentRoute.value.path).toBe('/posts/create')
+  expect(JSON.parse(localStorage.getItem('devflow-editor-5-new')!).title).toBe('Retry later')
+})
+
+it('keeps an existing scheduled save in the editor without changing publication time', async () => {
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : { ...post(1), status: 'PUBLISHED', visibility: 'PUBLIC', publishedAt: '2099-01-01T00:00:00Z' })
+  const { host, router } = await mount()
+  host.querySelector<HTMLButtonElement>('.test-save')!.click()
   await vi.waitFor(() => expect(host.textContent).toContain('예약 공개로 저장했습니다.'))
+  expect(router.currentRoute.value.path).toBe('/admin/posts/1/edit')
   expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ visibility: 'PUBLIC', publishedAt: undefined }))
 })
 

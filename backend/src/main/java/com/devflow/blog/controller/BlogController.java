@@ -31,5 +31,15 @@ public class BlogController {
         return new ApiResponse<>(service.posts(categoryId, page, size, q));
     }
     @GetMapping("/posts/{id}")
-    public ApiResponse<PostDetail> post(@PathVariable long id,@AuthenticationPrincipal Actor actor) { return new ApiResponse<>(service.post(id,actor)); }
+    public ApiResponse<PostDetail> post(@PathVariable long id,@AuthenticationPrincipal Actor actor,
+                                       @RequestParam(defaultValue="false") boolean preview) {
+        return new ApiResponse<>(service.post(id,actor,preview));
+    }
+    @GetMapping("/posts/{id}/related")
+    public ApiResponse<PostPage> related(@PathVariable long id, @AuthenticationPrincipal Actor actor,
+                                        @RequestParam(defaultValue="false") boolean preview,
+                                        @RequestParam(defaultValue="0") int page,
+                                        @RequestParam(defaultValue="3") int size) {
+        return new ApiResponse<>(service.related(id, actor, preview, page, size));
+    }
 }

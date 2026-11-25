@@ -12,9 +12,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class OpenAiResearchClient implements AiResearchClient {
+    private static final Logger log = LoggerFactory.getLogger(OpenAiResearchClient.class);
+    private static final Set<String> SAFE_CODES = Set.of("invalid_api_key", "model_not_found", "insufficient_quota",
+        "rate_limit_exceeded", "permission_denied", "unsupported_parameter", "unsupported_value", "invalid_value",
+        "credit_balance_exhausted", "organization_spend_limit_exceeded", "project_spend_limit_exceeded",
+        "organization_usage_limit_exceeded", "server_is_overloaded");
     private final String key, model;
     private final RestClient client;
     private final ObjectMapper json;
@@ -44,9 +53,34 @@ public class OpenAiResearchClient implements AiResearchClient {
                     "input", question)).retrieve().body(String.class);
             return parse(response);
         } catch (ApiException e) { throw e; }
-        catch (Exception e) { // Never expose provider bodies, headers, question, or credential-bearing exceptions.
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "AI_UNAVAILABLE", "AI 조사 요청을 완료하지 못했습니다. 잠시 후 다시 시도하세요.");
+        catch (RestClientResponseException e) {
+            // Provider bodies and exception messages can contain credentials or user input.
+            // Log only the numeric status and a fixed allowlist of machine-readable codes.
+            String code = safeErrorCode(e.getResponseBodyAsString());
+            log.warn("OpenAI research failed: HTTP {}, code={}", e.getStatusCode().value(), code);
+            throw unavailable();
+        } catch (ResourceAccessException e) {
+            boolean timeout = false;
+            for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+                if (cause instanceof java.net.http.HttpTimeoutException || cause instanceof java.net.SocketTimeoutException) { timeout = true; break; }
+            }
+            log.warn("OpenAI research failed: reason={}", timeout ? "TIMEOUT" : "NETWORK_OR_TLS");
+            throw unavailable();
         }
+        catch (Exception e) { // Never expose provider bodies, headers, question, or credential-bearing exceptions.
+            log.warn("OpenAI research failed: reason=INVALID_RESPONSE_OR_CLIENT_ERROR");
+            throw unavailable();
+        }
+    }
+    private String safeErrorCode(String body) {
+        try {
+            if (body.length() > 100_000) return "unclassified";
+            String code = json.readTree(body).path("error").path("code").asText();
+            return SAFE_CODES.contains(code) ? code : "unclassified";
+        } catch (Exception ignored) { return "unclassified"; }
+    }
+    private static ApiException unavailable() {
+        return new ApiException(HttpStatus.BAD_GATEWAY, "AI_UNAVAILABLE", "AI 조사 요청을 완료하지 못했습니다. 잠시 후 다시 시도하세요.");
     }
     Research parse(String raw) throws Exception {
         if (raw == null || raw.length() > 2_000_000) throw invalid();

@@ -132,6 +132,14 @@ main.blog-page { width: 100%; margin: 0; padding: 0; }
 .not-found-links a { text-decoration: underline; text-underline-offset: .2em; }
 .related-posts { margin-top: 64px; padding-top: 32px; border-top: 1px solid #ededed; }
 .related-posts h2 { margin-bottom: 24px; font-size: 23px; letter-spacing: -.65px; }
+.post-detail-shell { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.post-detail-shell .blog-page { display: flex; flex: 1; flex-direction: column; }
+.post-detail-shell .detail-back { align-self: flex-start; }
+.post-detail-shell .post-detail { width: 100%; margin-bottom: 64px; }
+.post-detail-shell .related-posts { margin-top: auto; }
+.post-management { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.post-management > a, .post-management > button { min-height: 44px; font-size: 13px; }
+.post-management .is-disabled { opacity: .6; cursor: wait; }
 .ai-disclosure { margin-bottom: 24px; padding: 16px; border: 1px solid #d4d4d4; border-radius: 8px; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .ai-disclosure p { margin: 8px 0 0; white-space: pre-wrap; }
 .private-post-notice { padding: 12px; border: 1px solid #d4d4d4; border-radius: 6px; font-size: 14px; }

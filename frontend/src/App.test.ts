@@ -62,7 +62,7 @@ it('supports direct create navigation and the uncategorized option', async () =>
   const { host } = await mountApp('/posts/create')
   const category = host.querySelector<HTMLInputElement>('#post-category')!
   expect(category.value).toBe('')
-  expect(host.querySelector('#post-category option')?.textContent).toBe('미분류')
+  expect(host.querySelector('#post-category option')?.textContent).toBe('카테고리')
   expect(host.querySelector('#post-tags')).toBeNull()
   const editor = EditorView.findFromDOM(host.querySelector<HTMLElement>('.cm-editor')!)!
   editor.dispatch({ changes: { from: 0, insert: '# 새 글' } })

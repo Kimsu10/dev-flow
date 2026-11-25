@@ -11,4 +11,4 @@ export interface PostSummary {
 export interface CategorySectionData { category: Category; posts: PostSummary[] }
 export interface BlogHome { categories: CategorySectionData[] }
 export interface PostPage { items: PostSummary[]; page: number; size: number; totalElements: number; totalPages: number }
-export interface PostDetail { post: PostSummary; contentMarkdown: string; relatedPosts: PostSummary[]; aiAttribution: import('./ai').AiAttribution | null; visibility: 'PUBLIC' | 'PRIVATE' }
+export interface PostDetail { post: PostSummary; contentMarkdown: string; relatedPosts: PostSummary[]; aiAttribution: import('./ai').AiAttribution | null; visibility: 'PUBLIC' | 'PRIVATE'; status: string; canEdit: boolean; canDelete: boolean }

@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api, auth, ApiError } from '../auth'
 import { getManagedPost, type ManagedPost } from '../api/admin'
 import type { Category } from '../types/blog'
 import MarkdownEditorLayout from '../components/editor/MarkdownEditorLayout.vue'
 import CategoryInput from '../components/editor/CategoryInput.vue'
-import AiDraftPanel from '../components/editor/AiDraftPanel.vue'
 import AiSources from '../components/blog/AiSources.vue'
 import { validAttribution, type AiAttribution, type AiDraft } from '../types/ai'
 import PublicationFields from '../components/editor/PublicationFields.vue'
@@ -15,6 +14,7 @@ import { isFuturePublication, publicationLabels, publicationState, toLocalDateTi
 const title = ref(''), markdown = ref('')
 const notice = ref(''), busy = ref(false), loaded = ref(false)
 const route = useRoute(), postId = ref<number | null>(null), categories = ref<Category[]>([])
+const router = useRouter()
 const categoryId = ref<number | null>(null), summary = ref('')
 const version = ref<number | null>(null), conflict = ref(false)
 const savedPost = ref<ManagedPost | null>(null), publishedInput = ref('')
@@ -40,12 +40,6 @@ const needsAiConfirmation = computed(() => !!aiAttribution.value
   && (!hasPublicSettings.value || aiAttribution.value.draftId !== savedPost.value?.aiDraftId))
 function addCategory(category: Category) {
   categories.value = [...categories.value.filter(c => c.id !== category.id), category].sort((a,b) => a.sortOrder - b.sortOrder || a.id - b.id)
-}
-function applyAiDraft(draft: AiDraft) {
-  aiPublicationConfirmed.value = false
-  markdown.value = draft.contentMarkdown
-  aiAttribution.value = { draftId: draft.id, question: draft.question, sources: draft.sources }
-  notice.value = 'AI 초안을 편집기에 적용했습니다. 내용을 검토하고 수정한 뒤 저장하세요.'
 }
 // Capture the key for this editor instance: route params may change before unmount.
 const storageKey = `devflow-editor-${auth.user?.id ?? 'admin'}-${route.params.id ?? 'new'}`
@@ -120,6 +114,7 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
     return
   }
   const visibility = publish ? 'PUBLIC' : action === 'private' || !postId.value ? 'PRIVATE' : undefined
+  const creating = !postId.value
   flushDraft()
   busy.value = true
   try {
@@ -148,6 +143,11 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
     }[savedPublication.value]
     try { localStorage.removeItem(storageKey); draftState.value = 'empty'; notice.value = success }
     catch { notice.value = `${success} 브라우저 임시저장은 삭제하지 못했습니다.` }
+    if (creating) {
+      const preview = p.visibility === 'PUBLIC' && (p.status !== 'PUBLISHED' || isFuturePublication(p.publishedAt))
+      try { await router.replace({ name: 'post-detail', params: { id: p.id }, query: preview ? { preview: 'true' } : {} }) }
+      catch { notice.value = `${success} 글 상세로 이동하지 못했습니다. 내 글에서 확인해 주세요.` }
+    }
   } catch (error) {
     if (error instanceof ApiError && error.code === 'POST_CONFLICT') conflict.value = true
     flushDraft()
@@ -203,9 +203,9 @@ onBeforeUnmount(() => {
       <RouterLink to="/my-posts">내 글</RouterLink>
       <RouterLink to="/admin">관리자</RouterLink>
     </nav>
-    <header class="editor-heading">
-      <h1>{{ postId ? '게시글 검토 및 수정' : '새 글 작성' }}</h1>
-      <p><strong v-if="postId && loaded">{{ savedPublicationState }}</strong>{{ dirty ? '저장하지 않은 변경 사항이 있습니다.' : postId ? '저장한 내용과 같습니다.' : '제목과 본문을 작성해 주세요.' }}</p>
+    <header v-if="postId || dirty" class="editor-heading">
+      <h1 v-if="postId">게시글 검토 및 수정</h1>
+      <p><strong v-if="postId && loaded">{{ savedPublicationState }}</strong>{{ dirty ? '저장하지 않은 변경 사항이 있습니다.' : '저장한 내용과 같습니다.' }}</p>
     </header>
     <details class="local-draft" :class="{ 'has-draft': draftState === 'available' }">
       <summary>브라우저 임시저장 <span class="draft-status">{{ draftStatus }}</span></summary>
@@ -216,7 +216,6 @@ onBeforeUnmount(() => {
     <p v-if="conflict" class="editor-alert" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="`/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요.</p>
     <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
     <fieldset class="editor-fields" :inert="busy || !loaded" :disabled="busy || !loaded">
-    <AiDraftPanel @apply="applyAiDraft" />
     <section v-if="aiAttribution" class="applied-ai" aria-label="적용한 AI 초안 정보"><h2>AI 초안 적용됨</h2><p>발행 시 공개되는 원래 질문: {{ aiAttribution.question }}</p><p>본문을 수정해도 원래 질문과 출처는 유지됩니다.</p><AiSources :sources="aiAttribution.sources" /></section>
     <MarkdownEditorLayout
       v-model="markdown"
@@ -241,10 +240,10 @@ onBeforeUnmount(() => {
       </template>
       <template #metadata>
         <div class="post-metadata">
-          <CategoryInput v-model="categoryId" :categories="categories" @added="addCategory" />
-          <label>요약<input v-model="summary" maxlength="500"></label>
+          <input id="post-summary" v-model="summary" aria-label="요약" placeholder="요약할 내용을 입력하세요" maxlength="500">
         </div>
       </template>
+      <template #category><CategoryInput v-model="categoryId" :categories="categories" @added="addCategory" /></template>
     </MarkdownEditorLayout>
     </fieldset>
   </main>
@@ -258,7 +257,7 @@ onBeforeUnmount(() => {
 .editor-heading h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); letter-spacing: -.04em; }
 .editor-heading p { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0; color: #525252; }
 .editor-heading strong { padding: 2px 10px; border-radius: 20px; color: #1e4434; background: #e9f2ec; font-size: .85rem; }
-.local-draft { padding: 12px 16px; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; }
+.local-draft { margin-top: 20px; padding: 12px 16px; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; }
 .local-draft summary { cursor: pointer; font-weight: 600; }
 .local-draft.has-draft { background: #eef5ef; border-color: #a9bfad; }
 .draft-status { margin-inline-start: 8px; color: #525252; font-size: .85rem; font-weight: 500; }
@@ -269,10 +268,12 @@ onBeforeUnmount(() => {
 .editor-notice { background: #f4f6f5; }
 .editor-fields { min-inline-size: 0; border: 0; padding: 0; margin: 0; }
 .applied-ai { margin-bottom: 16px; padding: 16px; border: 1px solid #dedede; border-radius: 8px; overflow-wrap: anywhere; }
-.post-metadata { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px; padding: 0 22px 20px; }
+.post-metadata { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 0 22px 20px; }
 .post-metadata label { display: block; font-size: 13px; color: var(--md-muted); }
 .post-metadata input { display: block; box-sizing: border-box; width: 100%; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--md-border); border-radius: 5px; background: var(--md-panel); color: var(--md-text); font: inherit; }
-.post-publication { display: grid; gap: 10px; width: 100%; max-width: 380px; padding: 12px; border: 1px solid var(--md-border); border-radius: 8px; background: #fafafa; }
+.post-publication { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; width: 100%; }
+.post-publication :deep(.publication-fields) { flex: 1 1 380px; }
+.publication-consent { flex-basis: 100%; }
 .publication-consent { display: flex; align-items: flex-start; gap: 8px; font-size: .85rem; line-height: 1.5; }
 .publication-consent input { flex: none; accent-color: var(--md-accent); }
 .publication-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

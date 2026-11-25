@@ -18,7 +18,8 @@ async function get<T>(path: string, signal: AbortSignal): Promise<T> {
 
 export const getBlogHome = (signal: AbortSignal) => get<BlogHome>('/blog/home', signal)
 export const getCategories = (signal: AbortSignal) => get<Category[]>('/categories', signal)
-export const getPost = (id: string, signal: AbortSignal) => get<PostDetail>(`/posts/${encodeURIComponent(id)}`, signal)
+export const getPost = (id: string, signal: AbortSignal, preview = false) => get<PostDetail>(`/posts/${encodeURIComponent(id)}${preview ? '?preview=true' : ''}`, signal)
+export const getRelatedPosts = (id: number, page: number, signal: AbortSignal, preview = false, size = 3) => get<PostPage>(`/posts/${id}/related?page=${page}&size=${size}${preview ? '&preview=true' : ''}`, signal)
 export function getPosts(categoryId: string | undefined, page: number, signal: AbortSignal, search = '') {
   const query = new URLSearchParams({ page: String(page), size: '9' })
   if (categoryId) query.set('categoryId', categoryId)
