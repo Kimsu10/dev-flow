@@ -1,6 +1,7 @@
 package com.devflow.auth.config;
 import com.devflow.auth.domain.Actor;
 import com.devflow.auth.service.AccountService;
+import com.devflow.auth.service.LoginRateLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -28,7 +29,7 @@ public class SecurityConfig {
  }
  public static void error(HttpServletResponse response,int status,String code) throws IOException {
   response.setStatus(status);response.setContentType("application/json");
-  new ObjectMapper().writeValue(response.getOutputStream(),Map.of("error",Map.of("code",code,"message",status==401?"Authentication required":status==503?"Service temporarily unavailable":"Access denied")));
+  new ObjectMapper().writeValue(response.getOutputStream(),Map.of("error",Map.of("code",code,"message",status==401?"Authentication required":status==503?"Service temporarily unavailable":status==429?"Too many login requests":"Access denied")));
  }
  private void errors(HttpSecurity http) throws Exception {
   http.exceptionHandling(e->e.authenticationEntryPoint((q,s,x)->error(s,401,"UNAUTHENTICATED"))
@@ -52,7 +53,7 @@ public class SecurityConfig {
   },SecurityContextHolderFilter.class);
   errors(http); return http.build();
  }
- @Bean SecurityFilterChain browser(HttpSecurity http,AccountService accounts,HttpSessionSecurityContextRepository repository) throws Exception {
+ @Bean SecurityFilterChain browser(HttpSecurity http,AccountService accounts,HttpSessionSecurityContextRepository repository,LoginRateLimiter limiter) throws Exception {
   http.securityContext(c->c.securityContextRepository(repository))
    .requestCache(c->c.disable())
    .authorizeHttpRequests(a->a
@@ -63,6 +64,20 @@ public class SecurityConfig {
     .anyRequest().denyAll())
    .logout(l->l.logoutUrl("/api/auth/logout").deleteCookies("JSESSIONID")
     .logoutSuccessHandler((q,s,a)->{s.setContentType("application/json");s.getWriter().write("{\"data\":null}");}));
+  // Bound login work before CSRF processing, including requests without a valid token.
+  http.addFilterBefore(new OncePerRequestFilter(){
+   @Override protected void doFilterInternal(HttpServletRequest q,HttpServletResponse s,FilterChain chain) throws ServletException,IOException {
+    String path=q.getServletPath().isEmpty()?q.getRequestURI().substring(q.getContextPath().length()):q.getServletPath();
+    if("POST".equals(q.getMethod()) && "/api/auth/login".equals(path)){
+     var decision=limiter.address(q.getRemoteAddr());
+     if(!decision.allowed()){
+      s.setHeader("Retry-After",Long.toString(decision.retryAfterSeconds()));
+      error(s,429,"LOGIN_RATE_LIMITED");return;
+     }
+    }
+    chain.doFilter(q,s);
+   }
+  },org.springframework.security.web.csrf.CsrfFilter.class);
   // Recheck account status/role on every session request so disabling a user takes effect immediately.
   http.addFilterAfter(new OncePerRequestFilter(){
    @Override protected void doFilterInternal(HttpServletRequest q,HttpServletResponse s,FilterChain chain) throws ServletException,IOException {

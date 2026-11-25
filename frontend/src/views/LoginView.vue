@@ -12,7 +12,7 @@ async function submit() {
     const target = route.query.redirect
     await router.replace(auth.user?.role === 'ADMIN' ? (typeof target === 'string' && /^\/(?:admin(?:\/|$)|posts\/create$|my-posts$)/.test(target) ? target : '/admin') : '/')
   } catch (error) {
-    message.value = error instanceof ApiError && error.code === 'SESSION_NOT_ESTABLISHED'
+    message.value = error instanceof ApiError && (error.code === 'SESSION_NOT_ESTABLISHED' || error.code === 'LOGIN_RATE_LIMITED')
       ? error.message
       : '로그인에 실패했습니다. 아이디 또는 이메일과 비밀번호를 확인하세요.'
   }
