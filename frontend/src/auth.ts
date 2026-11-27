@@ -12,6 +12,10 @@ const messages: Record<string, string> = {
   AI_UNAVAILABLE: 'AI 조사 요청을 완료하지 못했습니다. 잠시 후 다시 시도하세요.',
   AI_UNVERIFIED: '자료 조사와 출처가 확인된 초안을 받지 못했습니다. 다시 시도하세요.',
   AI_BUSY: '진행 중인 AI 조사가 있습니다. 잠시 후 다시 시도하세요.',
+  IMAGE_STORAGE_NOT_CONFIGURED: '백엔드에 S3_BUCKET_NAME과 AWS 자격 증명을 설정한 뒤 다시 저장하세요.',
+  IMAGE_STORAGE_AUTH_REQUIRED: 'AWS 인증이 없거나 만료되었습니다. 백엔드의 AWS 프로필로 다시 로그인한 뒤 저장하세요. 첨부 이미지는 브라우저에 유지됩니다.',
+  IMAGE_UPLOAD_FAILED: 'S3 이미지 저장에 실패했습니다. 글은 저장되지 않았으며 첨부 파일은 브라우저에 유지됩니다.',
+  INVALID_IMAGES: '이미지는 PNG·JPEG·GIF·WebP 형식으로 개별 5MB, 최대 10개·총 25MB까지 첨부할 수 있습니다.',
 }
 export class ApiError extends Error { status: number; code?: string; constructor(status: number, code?: string) { super((code && messages[code]) || (status === 401 ? '로그인이 필요합니다.' : status === 403 ? '접근 권한이 없거나 보안 토큰이 만료되었습니다.' : status === 409 ? '이미 사용 중인 계정이거나 데이터가 충돌합니다.' : '요청을 처리하지 못했습니다. 입력 내용을 확인하세요.')); this.status = status; this.code = code } }
 export async function api<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -22,9 +26,9 @@ export async function api<T>(path: string, method = 'GET', body?: unknown, signa
     if (!csrf.ok) throw new ApiError(csrf.status)
     const { data } = await csrf.json()
     headers[data.headerName] = data.token
-    if (body !== undefined) headers['Content-Type'] = 'application/json'
+    if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json'
   }
-  const response = await fetch(`/api${path}`, { method, headers, credentials: 'same-origin', cache: 'no-store', signal, body: body === undefined ? undefined : JSON.stringify(body) })
+  const response = await fetch(`/api${path}`, { method, headers, credentials: 'same-origin', cache: 'no-store', signal, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body) })
   if (!response.ok) {
     if (response.status === 401 && path !== '/auth/login' && revision === sessionRevision) {
       auth.user = null

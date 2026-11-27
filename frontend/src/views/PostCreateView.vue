@@ -10,8 +10,10 @@ import AiSources from '../components/blog/AiSources.vue'
 import { validAttribution, type AiAttribution, type AiDraft } from '../types/ai'
 import PublicationFields from '../components/editor/PublicationFields.vue'
 import { isFuturePublication, publicationLabels, publicationState, toLocalDateTime, validPublicationInput } from '../utils/publication'
+import { pendingImageIds, usePendingImages } from '../composables/usePendingImages'
 
 const title = ref(''), markdown = ref('')
+const pendingImages = usePendingImages(markdown, auth.user?.id ?? 'admin')
 const notice = ref(''), busy = ref(false), loaded = ref(false)
 const route = useRoute(), postId = ref<number | null>(null), categories = ref<Category[]>([])
 const router = useRouter()
@@ -118,14 +120,18 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
   flushDraft()
   busy.value = true
   try {
-    const p = await api<ManagedPost>(postId.value ? `/admin/posts/${postId.value}` : '/admin/posts', postId.value ? 'PUT' : 'POST', {
+    const payload = {
       title: title.value, contentMarkdown: markdown.value, summary: summary.value, categoryId: categoryId.value,
       version: version.value,
       aiDraftId: aiAttribution.value?.draftId ?? null,
       visibility,
       // Omit an unchanged input to preserve the original database timestamp exactly.
       publishedAt: publishedInput.value && publishedInput.value !== originalPublishedInput.value ? new Date(publishedInput.value).toISOString() : undefined,
-    })
+    }
+    const imageIds = pendingImageIds(markdown.value)
+    const path = (postId.value ? `/admin/posts/${postId.value}` : '/admin/posts') + (imageIds.length ? '/with-images' : '')
+    const p = await api<ManagedPost>(path, postId.value ? 'PUT' : 'POST', imageIds.length ? await pendingImages.form(payload) : payload)
+    markdown.value = p.contentMarkdown
     postId.value = p.id
     version.value = p.version
     savedPost.value = p
@@ -143,6 +149,7 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
     }[savedPublication.value]
     try { localStorage.removeItem(storageKey); draftState.value = 'empty'; notice.value = success }
     catch { notice.value = `${success} 브라우저 임시저장은 삭제하지 못했습니다.` }
+    if (imageIds.length) { try { await pendingImages.clear(imageIds) } catch { /* A successful server save must remain successful. */ } }
     if (creating) {
       const preview = p.visibility === 'PUBLIC' && (p.status !== 'PUBLISHED' || isFuturePublication(p.publishedAt))
       try { await router.replace({ name: 'post-detail', params: { id: p.id }, query: preview ? { preview: 'true' } : {} }) }
@@ -215,11 +222,14 @@ onBeforeUnmount(() => {
     </details>
     <p v-if="conflict" class="editor-alert" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="`/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요.</p>
     <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
+    <p v-if="pendingImages.warning.value" class="editor-alert" role="alert">{{ pendingImages.warning.value }}</p>
     <fieldset class="editor-fields" :inert="busy || !loaded" :disabled="busy || !loaded">
     <section v-if="aiAttribution" class="applied-ai" aria-label="적용한 AI 초안 정보"><h2>AI 초안 적용됨</h2><p>발행 시 공개되는 원래 질문: {{ aiAttribution.question }}</p><p>본문을 수정해도 원래 질문과 출처는 유지됩니다.</p><AiSources :sources="aiAttribution.sources" /></section>
     <MarkdownEditorLayout
       v-model="markdown"
       v-model:title="title"
+      :upload-image="pendingImages.stage"
+      :preview-source="pendingImages.previewSource.value"
       placeholder="글을 작성하세요"
       @save="save()"
       @publish="save('publish')"
@@ -240,6 +250,7 @@ onBeforeUnmount(() => {
       </template>
       <template #metadata>
         <div class="post-metadata">
+          <small>이미지를 본문에 끌어다 놓거나 붙여넣으세요. 저장 전에는 이 브라우저에만 보관되며, 글 저장 시 S3에 업로드됩니다. 개별 5MB · 최대 10개 · 총 25MB.</small>
           <input id="post-summary" v-model="summary" aria-label="요약" placeholder="요약할 내용을 입력하세요" maxlength="500">
         </div>
       </template>

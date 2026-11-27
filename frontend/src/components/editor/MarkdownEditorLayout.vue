@@ -5,7 +5,7 @@ import MarkdownToolbar from './MarkdownToolbar.vue'
 import MarkdownPreview from './MarkdownPreview.vue'
 import type { EditorMode, UploadImage } from './types'
 import './editor.css'
-withDefaults(defineProps<{ modelValue: string; title?: string; placeholder?: string; uploadImage?: UploadImage; maxImageBytes?: number }>(), { title: '', placeholder: '글을 작성하세요' })
+withDefaults(defineProps<{ modelValue: string; previewSource?: string; title?: string; placeholder?: string; uploadImage?: UploadImage; maxImageBytes?: number }>(), { title: '', placeholder: '글을 작성하세요' })
 const emit = defineEmits<{ 'update:modelValue': [value: string]; 'update:title': [value: string]; save: []; publish: [] }>()
 const mode = ref<EditorMode>(window.matchMedia?.('(max-width: 760px)').matches ? 'editor' : 'split')
 const fullscreen = ref(false), uploading = ref(false)
@@ -38,7 +38,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
     <MarkdownToolbar :disabled="mode === 'preview'" @format="(kind, heading) => editor?.format(kind, heading)" @image="editor?.chooseImage()" />
     <div class="md-panes" :data-mode="mode">
       <div v-show="mode !== 'preview'" class="md-pane"><div class="md-pane-label">Markdown 본문</div><MarkdownEditor ref="editor" :model-value="modelValue" :placeholder="placeholder" :upload-image="uploadImage" :max-image-bytes="maxImageBytes" @update:model-value="emit('update:modelValue', $event)" @uploading="uploading = $event" @scroll="sync('preview', $event)" /></div>
-      <div v-show="mode !== 'editor'" class="md-pane"><div class="md-pane-label">미리보기</div><MarkdownPreview ref="preview" :source="modelValue" @scroll="sync('editor', $event)" /></div>
+      <div v-show="mode !== 'editor'" class="md-pane"><div class="md-pane-label">미리보기</div><MarkdownPreview ref="preview" :source="previewSource ?? modelValue" @scroll="sync('editor', $event)" /></div>
     </div>
     <div class="md-actions md-bottom-actions"><slot name="actions" :uploading="uploading"><button type="button" :disabled="uploading" @click="emit('save')">임시 저장</button><button type="button" :disabled="uploading" @click="emit('publish')">발행</button></slot></div>
     <footer class="md-footer"><span>{{ modelValue.length.toLocaleString() }}자 · Markdown</span><span>Ctrl/⌘ B · I · Z · Shift Z | Tab 들여쓰기 · Esc 전체 화면 종료</span></footer>

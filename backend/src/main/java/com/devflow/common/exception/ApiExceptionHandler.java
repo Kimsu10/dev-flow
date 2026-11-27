@@ -16,6 +16,10 @@ public class ApiExceptionHandler {
     public ResponseEntity<ErrorResponse> handleApi(ApiException exception) {
         return response(exception.status(), exception.code(), exception.getMessage());
     }
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleImageSize() {
+        return response(HttpStatus.PAYLOAD_TOO_LARGE,"INVALID_IMAGES","Image request is too large");
+    }
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleInvalidParameter() {
         return response(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "조회 조건을 확인해 주세요.");

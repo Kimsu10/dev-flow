@@ -4,6 +4,15 @@ import { api, auth, restoreAuth, login } from './auth'
 import { authGuard } from './router'
 afterEach(() => { auth.user = null; auth.ready = false; vi.unstubAllGlobals() })
 const profile = { id: 1, username: 'owner', email: 'owner@example.test', role: 'ADMIN' as const, status: 'ACTIVE' }
+it('sends multipart uploads with CSRF and lets the browser generate the boundary', async () => {
+ const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ data: { headerName: 'X-CSRF-TOKEN', token: 'test-csrf' } })))
+  .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 1 } })))
+ vi.stubGlobal('fetch', fetcher)
+ const body = new FormData(); body.append('images', new Blob(['test'], { type: 'image/png' }), 'test.png')
+ await api('/admin/posts/with-images', 'POST', body)
+ expect(fetcher.mock.calls[1]?.[1].body).toBe(body)
+ expect(fetcher.mock.calls[1]?.[1].headers).toEqual({ 'X-CSRF-TOKEN': 'test-csrf' })
+})
 it('restores authentication once and guards privileged routes', async () => {
  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: profile })))
  vi.stubGlobal('fetch', fetcher)

@@ -60,7 +60,7 @@ public class SecurityConfig {
     .requestMatchers("/api/admin/**").hasRole("ADMIN")
     .requestMatchers("/api/auth/me","/api/auth/logout").authenticated()
     .requestMatchers(HttpMethod.POST,"/api/auth/login","/api/analytics/page-views").permitAll()
-    .requestMatchers(HttpMethod.GET,"/api/auth/csrf","/api/health","/api/blog/home","/api/categories","/api/posts","/api/posts/*","/api/posts/*/related").permitAll()
+    .requestMatchers(HttpMethod.GET,"/api/auth/csrf","/api/health","/api/blog/home","/api/categories","/api/posts","/api/posts/*","/api/posts/*/related","/api/posts/*/images/*").permitAll()
     .anyRequest().denyAll())
    .logout(l->l.logoutUrl("/api/auth/logout").deleteCookies("JSESSIONID")
     .logoutSuccessHandler((q,s,a)->{s.setContentType("application/json");s.getWriter().write("{\"data\":null}");}));

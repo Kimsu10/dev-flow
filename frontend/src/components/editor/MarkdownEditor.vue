@@ -42,7 +42,7 @@ async function upload(files: File[], position?: number) {
       const insert = '\n' + imageMarkdown(result.url, result.alt || file.name) + '\n'
       view.dispatch({ changes: { from: anchor, insert }, annotations: Transaction.userEvent.of('input') })
     }
-    status.value = '이미지 업로드 완료'
+    status.value = '이미지 첨부 완료 · 글을 저장하면 서버에 반영됩니다.'
   } catch (error) { if (!disposed) status.value = error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.' }
   finally { if (!disposed) { view?.dispatch({ effects: compartment.reconfigure([]) }); busy.value = false; emit('uploading', false) } }
 }
