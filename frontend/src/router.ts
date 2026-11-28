@@ -5,7 +5,8 @@ export const routes: RouteRecordRaw[] = [
   { path: '/admin/analytics', meta: { admin: true }, component: () => import('./views/AnalyticsView.vue') },
   { path: '/login', component: () => import('./views/LoginView.vue') },
   { path: '/forbidden', component: () => import('./views/ForbiddenView.vue') },
-  { path: '/my-posts', meta: { admin: true }, component: () => import('./views/MyPostsView.vue') },
+  { path: '/my-posts', meta: { author: true }, component: () => import('./views/MyPostsView.vue') },
+  { path: '/my-posts/:id(\\d+)/edit', meta: { author: true, editor: true }, component: () => import('./views/PostCreateView.vue') },
   { path: '/admin', meta: { admin: true }, component: () => import('./views/AdminView.vue') },
   { path: '/admin/posts/:id(\\d+)/edit', meta: { admin: true, editor: true }, component: () => import('./views/PostCreateView.vue') },
   { path: '/', name: 'home', component: () => import('./views/BlogHomeView.vue') },
@@ -19,8 +20,9 @@ export const routes: RouteRecordRaw[] = [
 export const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes })
 
 export async function authGuard(to: { path: string; fullPath: string; meta: Record<string, unknown> }) {
-  try { await restoreAuth(!!to.meta.admin && !auth.user) } catch { if (to.meta.admin) return '/login'; return true }
-  if (to.meta.admin && !auth.user) return { path: '/login', query: { redirect: to.fullPath } }
+  try { await restoreAuth(!!(to.meta.admin || to.meta.author) && !auth.user) } catch { if (to.meta.admin || to.meta.author) return '/login'; return true }
+  if ((to.meta.admin || to.meta.author) && !auth.user) return { path: '/login', query: { redirect: to.fullPath } }
+  if (to.meta.author && !['ADMIN', 'USER'].includes(auth.user?.role || '')) return '/forbidden'
   if (to.meta.admin && auth.user?.role !== 'ADMIN') return '/forbidden'
   return true
 }

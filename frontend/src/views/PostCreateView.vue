@@ -17,6 +17,7 @@ const pendingImages = usePendingImages(markdown, auth.user?.id ?? 'admin')
 const notice = ref(''), busy = ref(false), loaded = ref(false)
 const route = useRoute(), postId = ref<number | null>(null), categories = ref<Category[]>([])
 const router = useRouter()
+const isTrialEditor = auth.user?.role === 'USER'
 const categoryId = ref<number | null>(null), summary = ref('')
 const version = ref<number | null>(null), conflict = ref(false)
 const savedPost = ref<ManagedPost | null>(null), publishedInput = ref('')
@@ -89,16 +90,16 @@ onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnload)
   document.addEventListener('visibilitychange', visibilityChanged)
   try {
-    categories.value = await api<Category[]>('/categories')
+    categories.value = isTrialEditor ? [(await api<{ category: Category }>('/user/ai-policy')).category] : await api<Category[]>('/categories')
     if (route.params.id) {
-      const p = await getManagedPost(String(route.params.id))
+      const p = isTrialEditor ? await api<ManagedPost>(`/user/posts/${route.params.id}`) : await getManagedPost(String(route.params.id))
       postId.value = p.id; title.value = p.title; markdown.value = p.contentMarkdown
       categoryId.value = p.categoryId; summary.value = p.summary
       version.value = p.version
       savedPost.value = p
       publishedInput.value = toLocalDateTime(p.publishedAt)
       if (p.aiDraftId) {
-        const draft = await api<AiDraft>(`/admin/ai-drafts/${p.aiDraftId}`)
+        const draft = await api<AiDraft>(isTrialEditor ? `/user/posts/${p.id}/ai-draft` : `/admin/ai-drafts/${p.aiDraftId}`)
         aiAttribution.value = { draftId: draft.id, question: draft.question, sources: draft.sources }
       }
     }
@@ -111,7 +112,7 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
   if (!title.value.trim()) { notice.value = '제목을 입력하세요.'; return }
   if (!validPublicationInput(publishedInput.value)) { notice.value = '게시 일시를 확인하세요.'; return }
   const publish = action === 'publish' || (action === 'keep' && hasPublicSettings.value)
-  if (publish && needsAiConfirmation.value && !aiPublicationConfirmed.value) {
+  if (!isTrialEditor && publish && needsAiConfirmation.value && !aiPublicationConfirmed.value) {
     notice.value = 'AI 원래 질문과 출처의 공개 여부를 확인하세요.'
     return
   }
@@ -129,8 +130,9 @@ async function save(action: 'keep' | 'private' | 'publish' = 'keep') {
       publishedAt: publishedInput.value && publishedInput.value !== originalPublishedInput.value ? new Date(publishedInput.value).toISOString() : undefined,
     }
     const imageIds = pendingImageIds(markdown.value)
-    const path = (postId.value ? `/admin/posts/${postId.value}` : '/admin/posts') + (imageIds.length ? '/with-images' : '')
-    const p = await api<ManagedPost>(path, postId.value ? 'PUT' : 'POST', imageIds.length ? await pendingImages.form(payload) : payload)
+    const path = isTrialEditor ? `/user/posts/${postId.value}` : (postId.value ? `/admin/posts/${postId.value}` : '/admin/posts') + (imageIds.length ? '/with-images' : '')
+    const body = isTrialEditor ? { title: title.value, contentMarkdown: markdown.value, summary: summary.value, version: version.value } : imageIds.length ? await pendingImages.form(payload) : payload
+    const p = await api<ManagedPost>(path, postId.value ? 'PUT' : 'POST', body)
     markdown.value = p.contentMarkdown
     postId.value = p.id
     version.value = p.version
@@ -220,7 +222,7 @@ onBeforeUnmount(() => {
       <button type="button" :disabled="!loaded || busy || draftState !== 'available'" @click="restoreDraft">로컬 임시저장 복원</button>
       <button type="button" :disabled="busy || draftState !== 'available'" @click="clearDraft">로컬 임시저장 삭제</button>
     </details>
-    <p v-if="conflict" class="editor-alert" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="`/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요.</p>
+    <p v-if="conflict" class="editor-alert" role="alert">수정 충돌을 감지했습니다. 현재 입력을 복사해 보관하고 <RouterLink :to="isTrialEditor ? `/my-posts/${postId}/edit` : `/admin/posts/${postId}/edit`" target="_blank" rel="noopener">새 탭에서 최신 글 확인</RouterLink> 후 변경 사항을 반영하세요.</p>
     <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
     <p v-if="pendingImages.warning.value" class="editor-alert" role="alert">{{ pendingImages.warning.value }}</p>
     <fieldset class="editor-fields" :inert="busy || !loaded" :disabled="busy || !loaded">
@@ -228,14 +230,15 @@ onBeforeUnmount(() => {
     <MarkdownEditorLayout
       v-model="markdown"
       v-model:title="title"
-      :upload-image="pendingImages.stage"
+      :upload-image="isTrialEditor ? undefined : pendingImages.stage"
       :preview-source="pendingImages.previewSource.value"
       placeholder="글을 작성하세요"
       @save="save()"
       @publish="save('publish')"
     >
       <template #actions="{ uploading }">
-        <div class="post-publication">
+        <div v-if="isTrialEditor" class="publication-buttons"><button type="button" :disabled="uploading || conflict" @click="save()">수정 저장</button></div>
+        <div v-else class="post-publication">
           <PublicationFields v-model:published-input="publishedInput" />
           <label v-if="needsAiConfirmation" class="publication-consent">
             <input v-model="aiPublicationConfirmed" type="checkbox">
@@ -250,11 +253,11 @@ onBeforeUnmount(() => {
       </template>
       <template #metadata>
         <div class="post-metadata">
-          <small>이미지를 본문에 끌어다 놓거나 붙여넣으세요. 저장 전에는 이 브라우저에만 보관되며, 글 저장 시 S3에 업로드됩니다. 개별 5MB · 최대 10개 · 총 25MB.</small>
+          <small v-if="!isTrialEditor">이미지를 본문에 끌어다 놓거나 붙여넣으세요. 저장 전에는 이 브라우저에만 보관되며, 글 저장 시 S3에 업로드됩니다. 개별 5MB · 최대 10개 · 총 25MB.</small>
           <input id="post-summary" v-model="summary" aria-label="요약" placeholder="요약할 내용을 입력하세요" maxlength="500">
         </div>
       </template>
-      <template #category><CategoryInput v-model="categoryId" :categories="categories" @added="addCategory" /></template>
+      <template #category><select v-if="isTrialEditor" aria-label="카테고리" disabled><option>체험용</option></select><CategoryInput v-else v-model="categoryId" :categories="categories" @added="addCategory" /></template>
     </MarkdownEditorLayout>
     </fieldset>
   </main>

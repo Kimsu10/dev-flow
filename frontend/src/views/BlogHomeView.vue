@@ -22,7 +22,7 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value))
         <h1>기술 노트 <AiWordmark class="intro-ai-wordmark" /></h1>
         <p class="blog-eyebrow blog-intro-description">회사를 다니면서 배운 기술을 매일 기록하기 어려운가요?<br>AI에게 오늘 배운 지식을 알려주세요.<br>AI가 당신의 요구를 토대로 초안을 작성하고 발행해줍니다.</p>
       </div>
-      <HomeAiPublisher v-if="auth.user?.role === 'ADMIN'" />
+      <HomeAiPublisher v-if="auth.user?.role === 'ADMIN' || auth.user?.role === 'USER'" :key="auth.user.id + auth.user.role" />
     </header>
     <div :aria-busy="loading" class="blog-content">
       <RequestState :loading="loading" :error="error" :empty="!sections.length" @retry="reload" />

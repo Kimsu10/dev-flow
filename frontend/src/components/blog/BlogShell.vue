@@ -32,9 +32,9 @@ async function signOut() { try { await logout() } catch { message.value = '로�
       <RouterLink class="blog-brand" to="/" aria-label="KsNote with AI 홈"><span class="brand-mark" aria-hidden="true">+</span><span>KsNote</span><AiWordmark /></RouterLink>
       <div class="blog-header-controls">
         <form class="blog-header-search" role="search" aria-label="블로그 전체 검색" @submit.prevent="searchPosts"><PostSearchField id="header-post-search" v-model="searchInput" hide-label /></form>
-        <nav v-if="auth.user?.role === 'ADMIN'" class="blog-primary-nav" aria-label="주요 메뉴">
+        <nav v-if="auth.user?.role === 'ADMIN' || auth.user?.role === 'USER'" class="blog-primary-nav" aria-label="주요 메뉴">
           <RouterLink to="/my-posts" exact-active-class="is-current">내 글</RouterLink>
-          <RouterLink to="/admin" exact-active-class="is-current">관리자</RouterLink>
+          <RouterLink v-if="isAdmin" to="/admin" exact-active-class="is-current">관리자</RouterLink>
         </nav>
         <div v-if="auth.user || showLogin" class="blog-account-actions" role="group" aria-label="작성 및 계정">
           <RouterLink v-if="auth.user?.role === 'ADMIN'" to="/posts/create" class="write-link outlined-link">글 작성</RouterLink>

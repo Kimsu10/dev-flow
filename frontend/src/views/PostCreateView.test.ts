@@ -4,7 +4,7 @@ import { createApp, nextTick, type App as VueApp } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '../App.vue'
 import { routes } from '../router'
-import { api, ApiError } from '../auth'
+import { api, auth, ApiError } from '../auth'
 
 vi.mock('./PostDetailView.vue', () => ({ default: { template: '<div class="test-detail">Detail</div>' } }))
 
@@ -21,6 +21,7 @@ vi.mock('../components/editor/MarkdownEditorLayout.vue', async () => {
 let app: VueApp | undefined
 const post = (id: number) => ({ id, title: `Post ${id}`, contentMarkdown: 'Body', categoryId: null, summary: '', status: 'DRAFT', version: 0 })
 beforeEach(() => {
+  auth.user!.role = 'ADMIN'
   localStorage.clear()
   vi.mocked(api).mockImplementation(async (path, method) => path === '/categories' ? [] : method === 'PUT' ? post(1) : post(Number(path.split('/').pop())))
 })
@@ -37,6 +38,18 @@ function typeTitle(host: HTMLElement, value: string) {
   const input = host.querySelector<HTMLInputElement>('.test-title')!
   input.value = value; input.dispatchEvent(new Event('input'))
 }
+it('edits a trial post through user APIs without offering manual creation or publication controls', async () => {
+  auth.user!.role = 'USER'
+  vi.mocked(api).mockImplementation(async path => path === '/user/ai-policy' ? { category: { id: 25, name: '체험용' } } : { ...post(1), categoryId: 25, status: 'PUBLISHED', visibility: 'PUBLIC' })
+  const { host, router } = await mount('/my-posts/1/edit')
+  expect(host.querySelector('.publication-primary')).toBeNull()
+  expect(host.querySelector('#post-publication')).toBeNull()
+  typeTitle(host, 'Edited trial')
+  Array.from(host.querySelectorAll('button')).find(b => b.textContent === '수정 저장')!.click()
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/user/posts/1', 'PUT', { title: 'Edited trial', contentMarkdown: 'Body', summary: '', version: 0 }))
+  expect(router.currentRoute.value.path).toBe('/my-posts/1/edit')
+  expect(vi.mocked(api).mock.calls.some(([path]) => path.startsWith('/admin'))).toBe(false)
+})
 it('flushes edits immediately on page hide and warns before closing with unsaved changes', async () => {
   const { host } = await mount()
   typeTitle(host, 'Unsaved')
@@ -120,8 +133,8 @@ it('restores the draft base version so stale restored content cannot bypass conf
   await vi.waitFor(() => expect(api).toHaveBeenCalledWith('/admin/posts/1', 'PUT', expect.objectContaining({ version: 1 })))
 })
 
-it('retains applied AI question and sources through edits, local restore and server reload', async () => {
-  const draft = { id: '11111111-1111-4111-8111-111111111111', question: '적용한 원래 질문', contentMarkdown: '# AI 초안', sources: [{ title: '자료', url: 'https://example.com/docs' }] }
+it.each([{ sources: [{ title: '자료', url: 'https://example.com/docs' }] }, { sources: [] }])('retains AI provenance with optional sources through restore and reload (%j)', async ({ sources }) => {
+  const draft = { id: '11111111-1111-4111-8111-111111111111', question: '적용한 원래 질문', contentMarkdown: '# AI 초안', sources }
   localStorage.setItem('devflow-editor-5-1', JSON.stringify({ title: 'AI post', markdown: draft.contentMarkdown, aiAttribution: { draftId: draft.id, question: draft.question, sources: draft.sources } }))
   const { host } = await mount()
   expect(host.querySelector('.ai-draft-panel')).toBeNull()
@@ -131,6 +144,7 @@ it('retains applied AI question and sources through edits, local restore and ser
   window.dispatchEvent(new Event('pagehide'))
   const local = localStorage.getItem('devflow-editor-5-1')!
   expect(JSON.parse(local).aiAttribution.question).toBe(draft.question)
+  expect(JSON.parse(local).aiAttribution.sources).toEqual(sources)
   app!.unmount(); app = undefined; document.body.innerHTML = ''
   vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : post(1))
   const restored = await mount()
@@ -144,7 +158,8 @@ it('retains applied AI question and sources through edits, local restore and ser
   vi.mocked(api).mockImplementation(async path => path === '/categories' ? [] : path.startsWith('/admin/ai-drafts/') ? draft : { ...post(1), contentMarkdown: '# 작성자가 편집한 본문', aiDraftId: draft.id })
   const reloaded = await mount()
   expect(reloaded.host.querySelector('.applied-ai')?.textContent).toContain(draft.question)
-  expect(reloaded.host.querySelector('.applied-ai a')?.getAttribute('href')).toBe(draft.sources[0]!.url)
+  if (sources.length) expect(reloaded.host.querySelector('.applied-ai a')?.getAttribute('href')).toBe(sources[0]!.url)
+  else expect(reloaded.host.querySelector('.applied-ai .ai-sources')).toBeNull()
 })
 
 it('saves privately by default and redirects to the created detail without publishing it', async () => {

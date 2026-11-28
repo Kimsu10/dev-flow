@@ -3,10 +3,30 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, type App } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import MyPostsView from './MyPostsView.vue'
-import { api } from '../auth'
+import { api, auth } from '../auth'
 vi.mock('../auth', () => ({ api: vi.fn(), auth: { user: { id: 5, role: 'ADMIN' } }, logout: vi.fn() }))
 let app: App | undefined
-afterEach(() => { app?.unmount(); document.body.innerHTML = ''; vi.restoreAllMocks(); vi.resetAllMocks() })
+afterEach(() => { app?.unmount(); document.body.innerHTML = ''; auth.user!.role = 'ADMIN'; vi.restoreAllMocks(); vi.resetAllMocks() })
+it('offers users only their own edit and confirmed delete controls through user endpoints', async () => {
+  auth.user!.role = 'USER'
+  let deleted = false
+  vi.mocked(api).mockImplementation(async (path, method) => {
+    if (method === 'DELETE') { expect(path).toBe('/user/posts/7'); deleted = true; return {} }
+    expect(path).toBe('/user/posts')
+    return deleted ? [] : [{ id: 7, title: 'Trial post', status: 'PUBLISHED', visibility: 'PUBLIC', publishedAt: '2020-01-01T00:00:00Z', aiDraftId: 'trial-ai' }]
+  })
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/my-posts', component: MyPostsView }] })
+  await router.push('/my-posts')
+  const host = document.createElement('div'); document.body.append(host)
+  app = createApp({ template: '<router-view />' }).use(router); app.mount(host)
+  await vi.waitFor(() => expect(host.querySelector('.my-posts article')).not.toBeNull())
+  expect(host.querySelector('a[href="/posts/create"]')).toBeNull()
+  expect(host.querySelector('a[href="/my-posts/7/edit"]')).not.toBeNull()
+  expect([...host.querySelectorAll('.my-posts button')].map(b => b.textContent)).toEqual(['삭제'])
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  host.querySelector<HTMLButtonElement>('.my-posts button')!.click()
+  await vi.waitFor(() => expect(host.querySelector('.my-posts article')).toBeNull())
+})
 it('manages a post through publication, withdrawal and confirmed deletion', async () => {
   let visibility = 'PRIVATE'
   let status = 'PUBLISHED'

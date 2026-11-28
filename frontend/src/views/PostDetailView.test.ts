@@ -41,6 +41,21 @@ it('shows permitted management links and supports editing', async () => {
   edit.click()
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/admin/posts/1/edit'))
 })
+it.each([{ sources: [{ title: 'Docs', url: 'https://example.com/docs' }] }, { sources: [] }])('shows AI disclosure and the original question independently of optional sources (%j)', async ({ sources }) => {
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ data: { ...detail(), aiAttribution: {
+    draftId: '11111111-1111-4111-8111-111111111111', question: 'Rabbit and goose story', sources,
+  } } })))
+  const { host } = await mount()
+  expect(host.querySelector('.ai-disclosure')?.textContent).toContain('AI가 생성한 초안')
+  expect(host.querySelector('.ai-disclosure')?.textContent).toContain('Rabbit and goose story')
+  if (sources.length) expect(host.querySelector('.ai-sources a')?.getAttribute('href')).toBe(sources[0]!.url)
+  else expect(host.querySelector('.ai-sources')).toBeNull()
+})
+it('keeps manually written and legacy posts free of AI disclosure', async () => {
+  const { host } = await mount()
+  expect(host.querySelector('.ai-disclosure')).toBeNull()
+  expect(host.querySelector('.ai-sources')).toBeNull()
+})
 it.each(['USER', 'SYSTEM', null])('hides management controls for %s even with stale server flags', async role => {
   auth.user = (role ? { id: 5, role } : null) as typeof auth.user
   const { host } = await mount()

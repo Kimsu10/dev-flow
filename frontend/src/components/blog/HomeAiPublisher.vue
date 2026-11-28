@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { api } from '../../auth'
+import { api, auth } from '../../auth'
 import type { AiDraft } from '../../types/ai'
 import { validAttribution } from '../../types/ai'
 import type { Category } from '../../types/blog'
@@ -9,6 +9,8 @@ import type { ManagedPost } from '../../api/admin'
 const router = useRouter()
 const question = ref(''), busy = ref(false), error = ref('')
 const categories = ref<Category[]>([]), categoryId = ref<number | null>(null)
+const isTrial = auth.user?.role === 'USER'
+const trialModel = ref(''), questionLimit = ref(2000)
 const draft = ref<AiDraft | null>(null)
 const theme = ref<'dark' | 'light'>('light')
 try { if (localStorage.getItem('ksnote-ai-terminal-theme') === 'dark') theme.value = 'dark' } catch { /* Theme switching still works without storage. */ }
@@ -20,7 +22,12 @@ const controller = new AbortController()
 onBeforeUnmount(() => controller.abort())
 async function loadCategories() {
   error.value = ''
-  try { categories.value = await api<Category[]>('/categories', 'GET', undefined, controller.signal) }
+  try {
+    if (isTrial) {
+      const policy = await api<{ category: Category; model: string; maxQuestionLength: number }>('/user/ai-policy', 'GET', undefined, controller.signal)
+      categories.value = [policy.category]; categoryId.value = policy.category.id; trialModel.value = policy.model; questionLimit.value = policy.maxQuestionLength
+    } else categories.value = await api<Category[]>('/categories', 'GET', undefined, controller.signal)
+  }
   catch { if (!controller.signal.aborted) error.value = '카테고리를 불러오지 못했습니다. 다시 시도해 주세요.' }
 }
 onMounted(loadCategories)
@@ -29,9 +36,14 @@ async function publish() {
   busy.value = true; error.value = ''
   const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(120000)])
   try {
+    if (isTrial) {
+      const post = await api<ManagedPost>('/user/ai-posts', 'POST', { question: question.value.trim(), publicQuestionAccepted: true }, signal)
+      if (!controller.signal.aborted) await router.push({ name: 'post-detail', params: { id: post.id } })
+      return
+    }
     if (!draft.value || draft.value.question !== question.value.trim()) {
       const result = await api<AiDraft>('/admin/ai-drafts', 'POST', { question: question.value.trim(), publicQuestionAccepted: true }, signal)
-      if (!validAttribution({ draftId: result.id, question: result.question, sources: result.sources }) || !result.contentMarkdown?.trim()) throw new Error('출처가 확인된 AI 글을 받지 못했습니다.')
+      if (!validAttribution({ draftId: result.id, question: result.question, sources: result.sources }) || !result.contentMarkdown?.trim()) throw new Error('유효한 AI 글을 받지 못했습니다.')
       draft.value = result
     }
     if (controller.signal.aborted) return
@@ -62,19 +74,19 @@ async function publish() {
     </div>
     <div class="terminal-body">
     <label class="terminal-question-label" for="home-ai-question">어떤 주제로 글을 작성할까요?</label>
-    <p id="home-ai-notice">입력 내용은 AI 서비스에 전달되며, 발행하면 원래 질문·AI 작성 안내·출처와 함께 즉시 공개됩니다.<br><strong>개인정보나 비밀정보를 입력하지 마세요.</strong> AI 작성 내용에는 오류가 있을 수 있으며 발행 후 수정할 수 있습니다.</p>
+    <p id="home-ai-notice">입력 내용은 AI 서비스에 전달되며, 발행하면 원래 질문·AI 작성 안내와 함께 즉시 공개됩니다. 참고한 외부 자료가 있으면 출처를 표시합니다.<br><strong>개인정보나 비밀정보를 입력하지 마세요.</strong> AI 작성 내용에는 오류가 있을 수 있으며 발행 후 수정할 수 있습니다.<template v-if="isTrial"><br><span class="trial-model-notice">테스트 사용자는 가장 저렴한 {{ trialModel || '체험용 모델' }}로 고정됩니다.</span></template></p>
     <div class="terminal-input">
       <span class="terminal-prompt" aria-hidden="true">❯</span>
-      <textarea id="home-ai-question" v-model="question" rows="4" required maxlength="2000" :disabled="busy" aria-describedby="home-ai-notice" placeholder="오늘 배운 기술과 경험을 입력해 주세요.&#10;어떤 내용을 담을지 여러 문장으로 알려주셔도 좋아요." />
+      <textarea id="home-ai-question" v-model="question" rows="4" required :maxlength="questionLimit" :disabled="busy" aria-describedby="home-ai-notice" placeholder="오늘 배운 기술과 경험을 입력해 주세요.&#10;어떤 내용을 담을지 여러 문장으로 알려주셔도 좋아요." />
     </div>
-    <div class="terminal-input-meta"><span>{{ question.length.toLocaleString() }} / 2,000</span></div>
+    <div class="terminal-input-meta"><span>{{ question.length.toLocaleString() }} / {{ questionLimit.toLocaleString() }}</span></div>
     <div class="home-ai-actions">
       <label for="home-ai-category">카테고리</label>
       <select id="home-ai-category" v-model="categoryId" required :disabled="busy"><option :value="null" disabled>카테고리 선택</option><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select>
       <button v-if="!categories.length" type="button" :disabled="busy" @click="loadCategories">카테고리 다시 불러오기</button>
-      <button class="ai-publish-button" type="submit" :disabled="busy || !question.trim() || !categoryId"><span aria-hidden="true">↵ </span>{{ busy ? '자료 조사 및 발행 중…' : 'AI 글 발행' }}</button>
+      <button class="ai-publish-button" type="submit" :disabled="busy || !question.trim() || !categoryId"><span aria-hidden="true">↵ </span>{{ busy ? 'AI 글 작성 및 발행 중…' : 'AI 글 발행' }}</button>
     </div>
-    <p v-if="busy" class="terminal-status" role="status">자료를 조사하고 출처가 포함된 글을 작성하고 있습니다.</p>
+    <p v-if="busy" class="terminal-status" role="status">요청에 맞춰 글을 작성하고 있습니다. 필요한 경우 외부 자료를 참고합니다.</p>
     <p v-if="error" class="terminal-error" role="alert">{{ error }}</p>
     </div>
   </form>

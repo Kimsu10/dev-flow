@@ -4,6 +4,13 @@ import { api, auth, restoreAuth, login } from './auth'
 import { authGuard } from './router'
 afterEach(() => { auth.user = null; auth.ready = false; vi.unstubAllGlobals() })
 const profile = { id: 1, username: 'owner', email: 'owner@example.test', role: 'ADMIN' as const, status: 'ACTIVE' }
+it('allows users into My Posts but keeps manual and administrator editors forbidden', async () => {
+ auth.user = { ...profile, role: 'USER' }; auth.ready = true
+ expect(await authGuard({ path: '/my-posts', fullPath: '/my-posts', meta: { author: true } })).toBe(true)
+ expect(await authGuard({ path: '/my-posts/1/edit', fullPath: '/my-posts/1/edit', meta: { author: true } })).toBe(true)
+ expect(await authGuard({ path: '/posts/create', fullPath: '/posts/create', meta: { admin: true } })).toBe('/forbidden')
+ expect(await authGuard({ path: '/admin/posts/1/edit', fullPath: '/admin/posts/1/edit', meta: { admin: true } })).toBe('/forbidden')
+})
 it('sends multipart uploads with CSRF and lets the browser generate the boundary', async () => {
  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ data: { headerName: 'X-CSRF-TOKEN', token: 'test-csrf' } })))
   .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 1 } })))

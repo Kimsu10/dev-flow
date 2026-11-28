@@ -21,11 +21,15 @@ public class AiDraftService {
         this.research = research; this.mapper = mapper; this.json = json;
     }
     public Draft generate(String question, long actorId) {
+        return generate(question,actorId,false);
+    }
+    public Draft generateTrial(String question,long actorId) { return generate(question,actorId,true); }
+    private Draft generate(String question,long actorId,boolean trial) {
         String original = question.strip();
         if (!slots.tryAcquire()) throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "AI_BUSY", "진행 중인 AI 조사가 있습니다. 잠시 후 다시 시도하세요.");
         try {
             // Do not hold a database transaction/connection during external research.
-            var result = research.research(original);
+            var result = trial?research.researchTrial(original):research.research(original);
             String id = UUID.randomUUID().toString();
             String sources;
             try { sources = json.writeValueAsString(result.sources()); }

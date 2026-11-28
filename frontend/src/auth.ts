@@ -14,8 +14,11 @@ const messages: Record<string, string> = {
   AI_NOT_CONFIGURED: '백엔드에 OpenAI API 키가 설정되지 않았습니다. 서버 환경에 OPENAI_API_KEY를 설정하고 백엔드를 재시작하세요.',
   SESSION_NOT_ESTABLISHED: '로그인 세션 쿠키가 확인되지 않습니다. 접속 주소와 서버의 쿠키 설정을 확인하세요.',
   AI_UNAVAILABLE: 'AI 조사 요청을 완료하지 못했습니다. 잠시 후 다시 시도하세요.',
-  AI_UNVERIFIED: '자료 조사와 출처가 확인된 초안을 받지 못했습니다. 다시 시도하세요.',
+  AI_UNVERIFIED: '완성된 AI 초안을 받지 못했습니다. 다시 시도하세요.',
+  AI_OUTPUT_LIMIT: 'AI 출력 토큰 한도에 도달해 글을 완성하지 못했습니다. 질문 범위를 줄여 다시 시도하세요.',
   AI_BUSY: '진행 중인 AI 조사가 있습니다. 잠시 후 다시 시도하세요.',
+  TRIAL_DAILY_LIMIT: '오늘의 AI 체험 횟수를 모두 사용했습니다. 한국 시간 기준 내일 다시 시도해 주세요.',
+  TRIAL_NOT_CONFIGURED: '체험용 글쓰기 설정을 불러올 수 없습니다. 관리자에게 문의해 주세요.',
   IMAGE_STORAGE_NOT_CONFIGURED: '백엔드에 S3_BUCKET_NAME과 AWS 자격 증명을 설정한 뒤 다시 저장하세요.',
   IMAGE_STORAGE_AUTH_REQUIRED: 'AWS 인증이 없거나 만료되었습니다. 백엔드의 AWS 프로필로 다시 로그인한 뒤 저장하세요. 첨부 이미지는 브라우저에 유지됩니다.',
   IMAGE_UPLOAD_FAILED: 'S3 이미지 저장에 실패했습니다. 글은 저장되지 않았으며 첨부 파일은 브라우저에 유지됩니다.',
@@ -36,9 +39,9 @@ export async function api<T>(path: string, method = 'GET', body?: unknown, signa
   if (!response.ok) {
     if (response.status === 401 && path !== '/auth/login' && revision === sessionRevision) {
       auth.user = null
-      if (router.currentRoute.value.meta.admin) void router.replace('/login')
+      if (router.currentRoute.value.meta.admin || router.currentRoute.value.meta.author) void router.replace('/login')
     }
-    if (response.status === 403 && revision === sessionRevision && router.currentRoute.value.meta.admin) void router.replace('/forbidden')
+    if (response.status === 403 && revision === sessionRevision && (router.currentRoute.value.meta.admin || router.currentRoute.value.meta.author)) void router.replace('/forbidden')
     let code: string | undefined
     try { const body = await response.json(); if (Object.hasOwn(messages, body?.error?.code)) code = body.error.code } catch { /* Keep the status-based error for non-JSON responses. */ }
     throw new ApiError(response.status, code)

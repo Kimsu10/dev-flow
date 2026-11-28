@@ -58,6 +58,7 @@ public class SecurityConfig {
    .requestCache(c->c.disable())
    .authorizeHttpRequests(a->a
     .requestMatchers("/api/admin/**").hasRole("ADMIN")
+    .requestMatchers("/api/user/**").hasRole("USER")
     .requestMatchers("/api/auth/me","/api/auth/logout").authenticated()
     .requestMatchers(HttpMethod.POST,"/api/auth/login","/api/analytics/page-views").permitAll()
     .requestMatchers(HttpMethod.GET,"/api/auth/csrf","/api/health","/api/blog/home","/api/categories","/api/posts","/api/posts/*","/api/posts/*/related","/api/posts/*/images/*").permitAll()

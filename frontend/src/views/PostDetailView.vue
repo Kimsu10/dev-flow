@@ -84,7 +84,7 @@ usePageView(computed(() => !loading.value && !error.value && !!data.value && !un
         <p v-if="data.visibility === 'PRIVATE'" class="private-post-notice" role="status">비공개 글 · 작성자에게만 표시됩니다.</p>
         <p v-if="unpublished" class="private-post-notice" role="status">미발행 글 미리보기 · 독자에게 공개되지 않습니다.</p>
         <p v-else-if="scheduled" class="private-post-notice" role="status">예약 공개 미리보기 · 지정한 게시 일시부터 공개됩니다.</p>
-        <aside v-if="data.aiAttribution" class="ai-disclosure" aria-label="AI 작성 안내"><strong>AI 조사 초안을 바탕으로 작성자가 검토·편집한 글입니다.</strong><p>원래 질문: {{ data.aiAttribution.question }}</p></aside>
+        <aside v-if="data.aiAttribution" class="ai-disclosure" aria-label="AI 작성 안내"><strong>AI가 생성한 초안을 바탕으로 작성된 글입니다.</strong><p>원래 질문: {{ data.aiAttribution.question }}</p></aside>
         <RouterLink v-if="data.post.category" class="detail-category" :to="{ name: 'post-list', query: { categoryId: data.post.category.id } }">{{ data.post.category.name }}</RouterLink>
         <h1>{{ data.post.title }}</h1><p class="post-detail-summary">{{ data.post.summary }}</p>
         <time class="post-date" :datetime="data.post.publishedAt || data.post.createdAt">{{ date }}</time>

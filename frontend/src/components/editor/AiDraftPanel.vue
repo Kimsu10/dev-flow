@@ -18,9 +18,9 @@ async function generate() {
   try {
     const result = await api<AiDraft>('/admin/ai-drafts', 'POST', { question: question.value.trim(), publicQuestionAccepted: true }, signal)
     if (controller.signal.aborted) return
-    if (!validAttribution({ draftId: result.id, question: result.question, sources: result.sources }) || typeof result.contentMarkdown !== 'string' || !result.contentMarkdown.trim()) throw new Error('출처가 확인된 AI 초안을 받지 못했습니다.')
+    if (!validAttribution({ draftId: result.id, question: result.question, sources: result.sources }) || typeof result.contentMarkdown !== 'string' || !result.contentMarkdown.trim()) throw new Error('유효한 AI 초안을 받지 못했습니다.')
     draft.value = result
-  } catch (cause) { if (!controller.signal.aborted) error.value = signal.aborted ? '조사 시간이 초과되었습니다. 다시 시도하세요.' : cause instanceof Error ? cause.message : 'AI 조사에 실패했습니다.' }
+  } catch (cause) { if (!controller.signal.aborted) error.value = signal.aborted ? '작성 시간이 초과되었습니다. 다시 시도하세요.' : cause instanceof Error ? cause.message : 'AI 초안 작성에 실패했습니다.' }
   finally { busy.value = false }
 }
 </script>
@@ -29,13 +29,13 @@ async function generate() {
   <section class="ai-draft-panel" aria-label="AI 글 작성">
     <button type="button" :aria-expanded="open" @click="open = !open">{{ open ? 'AI 초안 패널 닫기' : 'AI 글 작성' }}</button>
     <div v-show="open">
-      <p id="ai-disclosure">질문은 AI 서비스에 전달됩니다. 초안을 편집기에 적용하고 글을 발행하면 원래 질문과 AI 작성 안내, 출처 링크가 공개됩니다. 질문에 개인정보나 비밀정보를 입력하지 마세요.</p>
+      <p id="ai-disclosure">질문은 AI 서비스에 전달됩니다. 초안을 편집기에 적용하고 글을 발행하면 원래 질문과 AI 작성 안내가 공개됩니다. 참고한 외부 자료가 있으면 출처 링크도 공개됩니다. 질문에 개인정보나 비밀정보를 입력하지 마세요.</p>
       <form @submit.prevent="generate">
-        <label for="ai-question">조사할 질문<textarea id="ai-question" v-model="question" required maxlength="2000" rows="4" :disabled="busy" aria-describedby="ai-disclosure" /></label>
+        <label for="ai-question">작성할 내용<textarea id="ai-question" v-model="question" required maxlength="2000" rows="4" :disabled="busy" aria-describedby="ai-disclosure" /></label>
         <label class="ai-consent"><input v-model="accepted" type="checkbox" :disabled="busy" />발행 시 질문이 공개됨을 확인했습니다.</label>
-        <button type="submit" :disabled="busy || !accepted || !question.trim()">{{ busy ? '자료 조사 및 초안 작성 중…' : '자료 조사하고 초안 만들기' }}</button>
+        <button type="submit" :disabled="busy || !accepted || !question.trim()">{{ busy ? 'AI 초안 작성 중…' : 'AI 초안 만들기' }}</button>
       </form>
-      <p v-if="busy" role="status">실제 자료를 검색하고 있습니다. 완료되기 전까지 본문은 변경되지 않습니다.</p>
+      <p v-if="busy" role="status">요청에 맞춰 초안을 작성하고 있습니다. 완료되기 전까지 본문은 변경되지 않습니다.</p>
       <p v-if="error" role="alert">{{ error }}</p>
       <div v-if="draft" class="ai-draft-result">
         <h2>AI 초안 미리보기</h2><p>원래 질문: {{ draft.question }}</p>

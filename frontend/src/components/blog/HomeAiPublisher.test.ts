@@ -3,11 +3,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createApp, nextTick, type App } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import HomeAiPublisher from './HomeAiPublisher.vue'
-import { api } from '../../auth'
-vi.mock('../../auth', () => ({ api: vi.fn() }))
+import { api, auth } from '../../auth'
+vi.mock('../../auth', () => ({ api: vi.fn(), auth: { user: { role: 'ADMIN', id: 5 } } }))
 let app: App | undefined
 const draft = { id: '11111111-1111-4111-8111-111111111111', question: 'Question\nMore context', contentMarkdown: '# Generated title\n\nBody', sources: [{ title: 'Docs', url: 'https://example.com/docs' }] }
-beforeEach(() => { localStorage.removeItem('ksnote-ai-terminal-theme'); vi.mocked(api).mockImplementation(async path => path === '/categories' ? [{ id: 25, name: 'Spring Boot' }] : path === '/admin/ai-drafts' ? draft : { id: 123 }) })
+beforeEach(() => { auth.user!.role = 'ADMIN'; localStorage.removeItem('ksnote-ai-terminal-theme'); vi.mocked(api).mockImplementation(async path => path === '/categories' ? [{ id: 25, name: 'Spring Boot' }] : path === '/admin/ai-drafts' ? draft : { id: 123 }) })
 afterEach(() => { app?.unmount(); app = undefined; document.body.innerHTML = ''; vi.restoreAllMocks(); vi.resetAllMocks(); localStorage.removeItem('ksnote-ai-terminal-theme') })
 async function mount() {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: HomeAiPublisher }, { path: '/posts/:id', name: 'post-detail', component: { template: '<p>Detail</p>' } }] })
@@ -48,7 +48,8 @@ it('restores light mode and can switch even when browser storage rejects writes'
   host.querySelector<HTMLButtonElement>('[aria-label="다크 모드"]')!.click(); await nextTick()
   expect(host.querySelector('form')?.getAttribute('data-theme')).toBe('dark')
 })
-it('researches and publishes from multiline input, retaining provenance and category', async () => {
+it.each([{ sources: draft.sources }, { sources: [] }])('publishes with optional sources, retaining the question and category (%j)', async ({ sources }) => {
+  vi.mocked(api).mockImplementation(async path => path === '/categories' ? [{ id: 25, name: 'Spring Boot' }] : path === '/admin/ai-drafts' ? { ...draft, sources } : { id: 123 })
   const { host, router } = await mount()
   expect(host.textContent).toContain('즉시 공개됩니다')
   host.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
@@ -56,9 +57,21 @@ it('researches and publishes from multiline input, retaining provenance and cate
   expect(api).toHaveBeenCalledWith('/admin/ai-drafts', 'POST', { question: draft.question, publicQuestionAccepted: true }, expect.any(AbortSignal))
   expect(api).toHaveBeenCalledWith('/admin/posts', 'POST', expect.objectContaining({ title: 'Generated title', contentMarkdown: draft.contentMarkdown, aiDraftId: draft.id, categoryId: 25, visibility: 'PUBLIC' }), expect.any(AbortSignal))
 })
-it('does not publish unverified AI output and retains the input after failure', async () => {
+it('shows the server trial model and only the trial category, and uses the user publication endpoint', async () => {
+  auth.user!.role = 'USER'
+  vi.mocked(api).mockImplementation(async path => path === '/user/ai-policy' ? { category: { id: 25, name: '체험용' }, model: 'gpt-6-luna', maxQuestionLength: 1000 } : { id: 123 })
   const { host, router } = await mount()
-  vi.mocked(api).mockResolvedValueOnce({ ...draft, sources: [] })
+  expect(host.textContent).toContain('테스트 사용자는 가장 저렴한 gpt-6-luna로 고정됩니다.')
+  expect(host.querySelector('textarea')?.maxLength).toBe(1000)
+  expect([...host.querySelectorAll('option')].map(o => o.textContent)).toEqual(['카테고리 선택', '체험용'])
+  host.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/posts/123'))
+  expect(api).toHaveBeenCalledWith('/user/ai-posts', 'POST', { question: draft.question, publicQuestionAccepted: true }, expect.any(AbortSignal))
+  expect(vi.mocked(api).mock.calls.some(([path]) => path.startsWith('/admin'))).toBe(false)
+})
+it('rejects unsafe source metadata and retains the input after failure', async () => {
+  const { host, router } = await mount()
+  vi.mocked(api).mockResolvedValueOnce({ ...draft, sources: [{ title: 'Unsafe', url: 'javascript:alert(1)' }] })
   host.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
   await vi.waitFor(() => expect(host.querySelector('[role="alert"]')).not.toBeNull())
   expect(vi.mocked(api).mock.calls.filter(([path]) => path === '/admin/posts')).toHaveLength(0)

@@ -29,26 +29,28 @@ it('adds or reuses a category, emits immediate selection, and prevents duplicate
   expect(host.querySelectorAll('option')).toHaveLength(2)
   expect(host.querySelector<HTMLSelectElement>('select')?.value).toBe('1')
 })
-it('keeps AI optional, requires disclosure consent and applies only after preview approval', async () => {
-  vi.mocked(api).mockResolvedValue(draft)
+it.each([{ sources: draft.sources }, { sources: [] }])('previews optional sources and applies only after consent and approval (%j)', async ({ sources }) => {
+  const generated = { ...draft, sources }
+  vi.mocked(api).mockResolvedValue(generated)
   const host = hostElement(), apply = vi.fn()
   app = createApp(AiDraftPanel, { onApply: apply }); app.mount(host)
   expect(api).not.toHaveBeenCalled()
   button(host, 'AI 글 작성').click(); await nextTick()
-  expect(host.textContent).toContain('원래 질문과 AI 작성 안내, 출처 링크가 공개됩니다')
+  expect(host.textContent).toContain('원래 질문과 AI 작성 안내가 공개됩니다')
   const question = host.querySelector<HTMLTextAreaElement>('#ai-question')!
   question.value = draft.question; question.dispatchEvent(new Event('input')); await nextTick()
-  expect(button(host, '자료 조사하고 초안 만들기').disabled).toBe(true)
+  expect(button(host, 'AI 초안 만들기').disabled).toBe(true)
   const consent = host.querySelector<HTMLInputElement>('input[type="checkbox"]')!
   consent.checked = true; consent.dispatchEvent(new Event('change')); await nextTick()
   host.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
   await vi.waitFor(() => expect(host.querySelector('.ai-draft-result')).not.toBeNull())
   expect(host.querySelector('.md-preview h1')?.textContent).toBe('조사 결과')
-  expect(host.querySelector('.ai-sources a')?.getAttribute('href')).toBe(draft.sources[0]!.url)
+  if (sources.length) expect(host.querySelector('.ai-sources a')?.getAttribute('href')).toBe(sources[0]!.url)
+  else expect(host.querySelector('.ai-sources')).toBeNull()
   expect(apply).not.toHaveBeenCalled()
   question.value = '나중에 바꾼 질문'; question.dispatchEvent(new Event('input')); await nextTick()
   button(host, '편집기에 적용').click()
-  expect(apply).toHaveBeenCalledWith(draft)
+  expect(apply).toHaveBeenCalledWith(generated)
   expect(api).toHaveBeenCalledWith('/admin/ai-drafts', 'POST', { question: draft.question, publicQuestionAccepted: true }, expect.any(AbortSignal))
 })
 

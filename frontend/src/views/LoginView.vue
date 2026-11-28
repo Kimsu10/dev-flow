@@ -10,7 +10,8 @@ async function submit() {
   try {
     await login(username.value, password.value)
     const target = route.query.redirect
-    await router.replace(auth.user?.role === 'ADMIN' ? (typeof target === 'string' && /^\/(?:admin(?:\/|$)|posts\/create$|my-posts$)/.test(target) ? target : '/admin') : '/')
+    if (auth.user?.role === 'USER' && typeof target === 'string' && /^\/my-posts(?:$|\/\d+\/edit$)/.test(target)) await router.replace(target)
+    else await router.replace(auth.user?.role === 'ADMIN' ? (typeof target === 'string' && /^\/(?:admin(?:\/|$)|posts\/create$|my-posts(?:$|\/\d+\/edit$))/.test(target) ? target : '/admin') : '/')
   } catch (error) {
     message.value = error instanceof ApiError && (error.code === 'SESSION_NOT_ESTABLISHED' || error.code === 'LOGIN_RATE_LIMITED')
       ? error.message

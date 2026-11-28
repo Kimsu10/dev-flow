@@ -43,7 +43,7 @@ it('preserves administrator destinations while separating navigation and account
 })
 it('keeps regular users out of administrator menus and retains logout behavior', async () => {
   const { host } = await mount('USER')
-  expect(host.querySelector('.blog-primary-nav')).toBeNull()
+  expect([...host.querySelectorAll('.blog-primary-nav a')].map(a => a.getAttribute('href'))).toEqual(['/my-posts'])
   expect(host.querySelector('.blog-account-actions a')).toBeNull()
   expect(host.querySelector('.blog-footer button.outlined-link')).toBeNull()
   host.querySelector<HTMLButtonElement>('.blog-account-actions button')!.click()

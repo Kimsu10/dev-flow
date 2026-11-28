@@ -87,4 +87,20 @@ class AuthoringPostgresIntegrationTest {
         write(post("/api/admin/posts"),Map.of("title","missing","contentMarkdown","body","aiDraftId",UUID.randomUUID().toString()),admin).andExpect(status().isNotFound());
         verifyNoInteractions(research);
     }
+
+    @Test void originalAiWritingKeepsQuestionAndEmptySourcesThroughPublicationAndEditing() throws Exception {
+        String question="토끼와 거위의 창작 이야기";
+        when(research.research(question)).thenReturn(new Research("# 함께 노는 친구들\n\n창작 이야기",List.of()));
+        var draft=data(write(post("/api/admin/ai-drafts"),Map.of("question",question,"publicQuestionAccepted",true),admin).andExpect(status().isOk()).andReturn());
+        assertTrue(draft.path("sources").isArray());assertEquals(0,draft.path("sources").size());
+        String draftId=draft.path("id").asText();
+        var saved=data(write(post("/api/admin/posts"),Map.of("title","창작 이야기","contentMarkdown","창작 본문","aiDraftId",draftId,"visibility","PUBLIC"),admin).andExpect(status().isOk()).andReturn());
+        long id=saved.path("id").asLong();
+        write(put("/api/admin/posts/"+id),Map.of("title","편집한 창작 이야기","contentMarkdown","수정한 본문","version",0),admin).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/ai-drafts/"+draftId).with(authentication(SecurityConfig.authentication(admin))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.question").value(question)).andExpect(jsonPath("$.data.sources").isEmpty());
+        mvc.perform(get("/api/posts/"+id)).andExpect(status().isOk()).andExpect(jsonPath("$.data.contentMarkdown").value("수정한 본문"))
+            .andExpect(jsonPath("$.data.aiAttribution.draftId").value(draftId)).andExpect(jsonPath("$.data.aiAttribution.question").value(question))
+            .andExpect(jsonPath("$.data.aiAttribution.sources").isArray()).andExpect(jsonPath("$.data.aiAttribution.sources").isEmpty());
+    }
 }

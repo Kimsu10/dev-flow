@@ -10,6 +10,6 @@ export function validAttribution(value: unknown): value is AiAttribution {
   const p = value as Partial<AiAttribution>
   return typeof p.draftId === 'string' && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(p.draftId)
     && typeof p.question === 'string' && !!p.question.trim() && p.question.length <= 2000
-    && Array.isArray(p.sources) && p.sources.length > 0 && p.sources.length <= 30
+    && Array.isArray(p.sources) && p.sources.length <= 30
     && p.sources.every(s => s && typeof s.title === 'string' && s.title.length <= 500 && typeof s.url === 'string' && safeSourceUrl(s.url))
 }
