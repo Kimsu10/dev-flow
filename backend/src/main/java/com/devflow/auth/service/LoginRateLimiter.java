@@ -27,6 +27,9 @@ public class LoginRateLimiter {
     public synchronized Decision identity(String login) {
         return reserve(identities, "identity:" + login.toLowerCase(Locale.ROOT), 10, 300);
     }
+    public synchronized Decision passwordChange(long accountId) {
+        return reserve(identities, "password-change:" + accountId, 10, 300);
+    }
     private Decision reserve(Map<String, Bucket> buckets, String value, int limit, long seconds) {
         long now = clock.instant().getEpochSecond();
         String key = AccountService.hash(salt + value);

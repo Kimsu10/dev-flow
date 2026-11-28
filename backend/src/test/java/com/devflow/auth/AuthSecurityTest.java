@@ -57,6 +57,8 @@ class AuthSecurityTest {
    .andExpect(status().isOk()).andReturn().getRequest().getSession(false);
   mvc.perform(get("/api/admin/posts").session(session)).andExpect(status().isForbidden());
   mvc.perform(post("/api/admin/posts").session(session).with(csrf()).contentType("application/json").content("{}")) .andExpect(status().isForbidden());
+  mvc.perform(patch("/api/admin/accounts/me/password").session(session).with(csrf()))
+   .andExpect(status().isForbidden());
   mvc.perform(post("/api/agent/posts/drafts").session(session)).andExpect(status().isUnauthorized());
   String token=UUID.randomUUID().toString();var agent=account(3,"SYSTEM",null);when(accounts.byToken(AccountService.hash(token))).thenReturn(agent);
   mvc.perform(get("/api/admin/posts").header("Authorization","Bearer "+token)).andExpect(status().isUnauthorized());
@@ -66,6 +68,18 @@ class AuthSecurityTest {
  }
  @Test void wrongPasswordFailsWithoutTrustingRole() throws Exception {
   mvc.perform(post("/api/auth/login").with(csrf()).contentType("application/json").content("{\"username\":\"owner\",\"password\":\"incorrect\",\"role\":\"ADMIN\"}")) .andExpect(status().isUnauthorized());
+ }
+ @Test void passwordChangeRequiresCsrfAndTheCurrentPassword() throws Exception {
+  var session=login();
+  var admin=accounts.find(1);
+  when(accounts.lock(1)).thenReturn(admin);
+  String next=UUID.randomUUID().toString();
+  String body="{\"currentPassword\":\""+UUID.randomUUID()+"\",\"newPassword\":\""+next+"\"}";
+  mvc.perform(patch("/api/admin/accounts/me/password").session(session).contentType("application/json").content(body))
+   .andExpect(status().isForbidden());
+  mvc.perform(patch("/api/admin/accounts/me/password").session(session).with(csrf()).contentType("application/json").content(body))
+   .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_CURRENT_PASSWORD"));
+  verify(accounts,never()).changePassword(anyLong(),anyString());
  }
  @Test void missingAiCredentialsReturnExplicitUnavailableWhileManualAdminQueriesStillWork() throws Exception {
   var session=login();

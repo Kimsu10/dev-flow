@@ -43,6 +43,49 @@ class AuthPostgresIntegrationTest {
   return mvc.perform(request);
  }
  java.util.Map<String,Object> body(String title,String status){return java.util.Map.of("title",title,"contentMarkdown","# Review\n\n**content**","summary","summary","status",status);}
+ @Test void adminPasswordChangePersistsAndReplacesTheLoginCredential()throws Exception {
+  var admin=login(username,password);
+  var path="/api/admin/accounts/me/password";
+  String next=UUID.randomUUID().toString();
+  write(admin,"PATCH",path,java.util.Map.of("currentPassword",password,"newPassword",password))
+   .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("PASSWORD_UNCHANGED"));
+  write(admin,"PATCH",path,java.util.Map.of("currentPassword",password,"newPassword","한".repeat(25)))
+   .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_PASSWORD"));
+  write(admin,"PATCH",path,java.util.Map.of("currentPassword",password,"newPassword",next))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.data").doesNotExist());
+  assertTrue(encoder.matches(next,accounts.find(adminId).passwordHash()));
+  mvc.perform(get("/api/auth/me").session(admin)).andExpect(status().isOk());
+  mvc.perform(post("/api/auth/login").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+   .contentType("application/json").content(json.writeValueAsString(java.util.Map.of("username",username,"password",password))))
+   .andExpect(status().isUnauthorized());
+  login(username,next);
+ }
+ @Test void administratorCanChangeOnlyTheirOwnAndRegularUserPasswords()throws Exception {
+  var admin=login(username,password);
+  String user="user-"+UUID.randomUUID();
+  String previous=UUID.randomUUID().toString();
+  String next=UUID.randomUUID().toString();
+  long userId=accounts.create(user,user+"@example.test",encoder.encode(previous),"USER");
+  String otherAdmin="admin-"+UUID.randomUUID();
+  long otherId=accounts.create(otherAdmin,otherAdmin+"@example.test",encoder.encode(previous),"ADMIN");
+  String agent="agent-"+UUID.randomUUID();
+  long agentId=accounts.create(agent,agent+"@example.test",null,"SYSTEM");
+
+  var path="/api/admin/accounts/"+userId+"/password";
+  var body=java.util.Map.of("currentPassword",password,"newPassword",next);
+  write(admin,"PATCH",path,java.util.Map.of("currentPassword",previous,"newPassword",next))
+   .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_CURRENT_PASSWORD"));
+  write(login(user,previous),"PATCH",path,body).andExpect(status().isForbidden());
+  write(admin,"PATCH","/api/admin/accounts/"+otherId+"/password",body).andExpect(status().isForbidden());
+  write(admin,"PATCH","/api/admin/accounts/"+agentId+"/password",body).andExpect(status().isForbidden());
+  write(admin,"PATCH",path,body).andExpect(status().isOk());
+
+  assertFalse(encoder.matches(previous,accounts.find(userId).passwordHash()));
+  assertTrue(encoder.matches(previous,accounts.find(otherId).passwordHash()));
+  assertNull(accounts.find(agentId).passwordHash());
+  login(user,next);
+  login(username,password);
+ }
  @Test void completeSessionAndAgentReviewWorkflow()throws Exception {
   var admin=login(email,password);
   mvc.perform(get("/api/auth/me").session(admin)).andExpect(jsonPath("$.data.role").value("ADMIN")).andExpect(jsonPath("$.data.passwordHash").doesNotExist());

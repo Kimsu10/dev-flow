@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view'
 import { routes } from './router'
 import App from './App.vue'
 import { auth } from './auth'
+import { analyticsConsent, consentToAnalytics } from './analytics/tracking'
 let app: VueApp | undefined
 async function mountApp(path = '/status') {
   const host = document.createElement('div')
@@ -22,6 +23,8 @@ afterEach(() => {
   document.body.innerHTML = ''
   vi.unstubAllGlobals()
   auth.user = null; auth.ready = false
+  analyticsConsent.value = null
+  localStorage.removeItem('devflow-analytics-consent')
 })
 it.each([
   [200, { status: 'UP', database: 'UP' }, '정상 동작'],
@@ -42,6 +45,28 @@ it('retries after network failure', async () => {
   host.querySelector('button')?.click()
   await vi.waitFor(() => expect(host.textContent).toContain('정상 동작'))
   expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+it('moves saved analytics choices to the footer and removes both controls from the status page', async () => {
+  auth.ready = true
+  consentToAnalytics('yes')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'UP', database: 'UP' }))))
+  const { host, router } = await mountApp()
+  expect(host.querySelector('.analytics-settings')).toBeNull()
+  expect(host.querySelector('a[href="/posts/create"]')).toBeNull()
+  await router.push('/login')
+  await vi.waitFor(() => expect(host.querySelector('.blog-footer .analytics-settings')).not.toBeNull())
+  expect(host.querySelector('dialog')).toBeNull()
+  host.querySelector<HTMLButtonElement>('.analytics-settings')!.click()
+  await vi.waitFor(() => expect(host.querySelector('dialog')).not.toBeNull())
+  host.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }))
+  await vi.waitFor(() => expect(host.querySelector('dialog')).toBeNull())
+  expect(localStorage.getItem('devflow-analytics-consent')).toBe('yes')
+
+  host.querySelector<HTMLButtonElement>('.analytics-settings')!.click()
+  await vi.waitFor(() => expect(host.querySelector('dialog')).not.toBeNull())
+  host.querySelector<HTMLButtonElement>('dialog button[autofocus]')!.click()
+  await vi.waitFor(() => expect(host.querySelector('dialog')).toBeNull())
+  expect(localStorage.getItem('devflow-analytics-consent')).toBe('no')
 })
 it('keeps the editor off home and navigates to a blank create page for ADMIN', async () => {
   auth.user = { id: 1, username: 'admin', email: 'admin@example.test', role: 'ADMIN', status: 'ACTIVE' }; auth.ready = true

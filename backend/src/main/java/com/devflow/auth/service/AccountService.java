@@ -42,9 +42,35 @@ public class AccountService {
   catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}
  }
  public List<Profile> list(){return mapper.list().stream().map(this::profile).toList();}
+ @Transactional public void changePassword(long adminId,long targetId,String currentPassword,String newPassword) {
+  if(!validPassword(newPassword) || newPassword.isBlank())
+   throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_PASSWORD","Password must contain at least 12 characters and at most 72 UTF-8 bytes");
+  if(currentPassword.getBytes(StandardCharsets.UTF_8).length>72)
+   throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_CURRENT_PASSWORD","Current password is incorrect");
+  Account admin=mapper.lock(adminId);
+  if(admin==null || !admin.status().equals("ACTIVE") || !admin.role().equals("ADMIN"))
+   throw new ApiException(HttpStatus.FORBIDDEN,"FORBIDDEN","Active administrator required");
+  if(admin.passwordHash()==null || !encoder.matches(currentPassword,admin.passwordHash()))
+   throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_CURRENT_PASSWORD","Current password is incorrect");
+  Account target=admin;
+  if(targetId!=adminId) {
+   target=mapper.lock(targetId);
+   if(target==null) throw new ApiException(HttpStatus.NOT_FOUND,"ACCOUNT_NOT_FOUND","Account not found");
+   if(!target.role().equals("USER"))
+    throw new ApiException(HttpStatus.FORBIDDEN,"FORBIDDEN","Only user account passwords can be changed by another account");
+  }
+  if(target.passwordHash()!=null && encoder.matches(newPassword,target.passwordHash()))
+   throw new ApiException(HttpStatus.BAD_REQUEST,"PASSWORD_UNCHANGED","Choose a different password");
+  mapper.changePassword(targetId,encoder.encode(newPassword));
+ }
+
+ private boolean validPassword(String password) {
+  return password!=null && password.length()>=12 && password.getBytes(StandardCharsets.UTF_8).length<=72;
+ }
+
  @Transactional public Profile create(String username,String email,String password,String role) {
   if(!Set.of("USER","SYSTEM").contains(role)) throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_ROLE","Only USER or SYSTEM may be created");
-  if(role.equals("USER") && (password==null || password.length()<12 || password.getBytes(StandardCharsets.UTF_8).length>72))
+  if(role.equals("USER") && !validPassword(password))
    throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_PASSWORD","Password must contain 12 to 72 characters");
   long id=mapper.create(username,email,role.equals("SYSTEM")?null:encoder.encode(password),role);
   return profile(mapper.find(id));

@@ -6,6 +6,10 @@ let restoring: Promise<void> | undefined
 let sessionRevision = 0
 const messages: Record<string, string> = {
   LOGIN_RATE_LIMITED: '로그인 요청이 많습니다. 잠시 후 다시 시도해 주세요.',
+  PASSWORD_CHANGE_RATE_LIMITED: '비밀번호 변경 요청이 많습니다. 잠시 후 다시 시도해 주세요.',
+  INVALID_CURRENT_PASSWORD: '현재 비밀번호가 올바르지 않습니다.',
+  INVALID_PASSWORD: '새 비밀번호는 12자 이상, UTF-8 기준 72바이트 이하여야 합니다.',
+  PASSWORD_UNCHANGED: '대상 계정의 기존 비밀번호와 다른 비밀번호를 입력해 주세요.',
   POST_CONFLICT: '다른 곳에서 수정된 글입니다. 입력 내용은 유지됩니다. 최신 글을 확인한 뒤 다시 편집하세요.',
   AI_NOT_CONFIGURED: '백엔드에 OpenAI API 키가 설정되지 않았습니다. 서버 환경에 OPENAI_API_KEY를 설정하고 백엔드를 재시작하세요.',
   SESSION_NOT_ESTABLISHED: '로그인 세션 쿠키가 확인되지 않습니다. 접속 주소와 서버의 쿠키 설정을 확인하세요.',

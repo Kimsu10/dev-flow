@@ -19,8 +19,23 @@ async function submit() {
   finally { password.value = ''; busy.value = false }
 }
 </script>
-<template><BlogShell><h1>로그인</h1><form class="auth-form" @submit.prevent="submit">
-<label>아이디 또는 이메일<input v-model="username" autocomplete="username" required maxlength="254"></label>
-<label>비밀번호<input v-model="password" type="password" autocomplete="current-password" required maxlength="72"></label>
-<button :disabled="busy">{{ busy ? '로그인 중…' : '로그인' }}</button><p v-if="message" role="alert">{{ message }}</p>
-</form></BlogShell></template>
+<template>
+  <BlogShell class="login-shell">
+    <section class="login-panel" aria-labelledby="login-heading">
+      <h1 id="login-heading">로그인</h1>
+      <form class="auth-form" @submit.prevent="submit">
+        <label>아이디 또는 이메일<input v-model="username" autocomplete="username" required maxlength="254"></label>
+        <label>비밀번호<input v-model="password" type="password" autocomplete="current-password" required maxlength="72"></label>
+        <button :disabled="busy">{{ busy ? '로그인 중…' : '로그인' }}</button>
+        <p v-if="message" role="alert">{{ message }}</p>
+      </form>
+    </section>
+  </BlogShell>
+</template>
+
+<style scoped>
+.login-shell :deep(.blog-page) { display: grid; align-items: center; }
+.login-panel { width: min(100%, 440px); margin-inline: auto; padding-block: 32px; text-align: center; }
+.login-panel h1 { margin: 0 0 24px; }
+.login-panel form, .login-panel p { margin: 0; }
+</style>

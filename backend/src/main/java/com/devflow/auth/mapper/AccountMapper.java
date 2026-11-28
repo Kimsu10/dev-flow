@@ -13,6 +13,8 @@ public interface AccountMapper {
  @Select("INSERT INTO blog.accounts(username,email,password_hash,role) VALUES(#{username},#{email},#{hash},#{role}) RETURNING id")
  long create(@Param("username") String username,@Param("email") String email,@Param("hash") String hash,@Param("role") String role);
  @Update("UPDATE blog.accounts SET last_login_at=now() WHERE id=#{id}") void login(long id);
+ @Update("UPDATE blog.accounts SET password_hash=#{hash},updated_at=now() WHERE id=#{id}")
+ void changePassword(@Param("id") long id,@Param("hash") String hash);
  @Update("UPDATE blog.accounts SET status=#{status},updated_at=now() WHERE id=#{id}")
  int status(@Param("id") long id,@Param("status") String status);
  @Insert("INSERT INTO blog.service_tokens(account_id,token_hash,expires_at) VALUES(#{id},#{hash},now() + interval '90 days')")

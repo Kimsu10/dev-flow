@@ -7,7 +7,6 @@ h1 { font-size: clamp(3rem, 10vw, 5rem); margin: 12px 0; }
 h2 { font-size: 1.25rem; }
 p { line-height: 1.7; }
 .eyebrow { color: #525252; }
-.write-post-link { display: inline-block; margin-top: 24px; padding: 10px 18px; border-radius: 8px; background: #171717; color: #fff; text-decoration: none; }
 .service-status { margin-top: 48px; padding: 24px; border: 1px solid #e5e5e5; border-radius: 12px; }
 .up { color: #16704a; }
 .down, .error { color: #b42318; }
