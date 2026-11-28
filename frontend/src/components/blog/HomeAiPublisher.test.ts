@@ -7,8 +7,8 @@ import { api } from '../../auth'
 vi.mock('../../auth', () => ({ api: vi.fn() }))
 let app: App | undefined
 const draft = { id: '11111111-1111-4111-8111-111111111111', question: 'Question\nMore context', contentMarkdown: '# Generated title\n\nBody', sources: [{ title: 'Docs', url: 'https://example.com/docs' }] }
-beforeEach(() => vi.mocked(api).mockImplementation(async path => path === '/categories' ? [{ id: 25, name: 'Spring Boot' }] : path === '/admin/ai-drafts' ? draft : { id: 123 }))
-afterEach(() => { app?.unmount(); app = undefined; document.body.innerHTML = ''; vi.resetAllMocks() })
+beforeEach(() => { localStorage.removeItem('ksnote-ai-terminal-theme'); vi.mocked(api).mockImplementation(async path => path === '/categories' ? [{ id: 25, name: 'Spring Boot' }] : path === '/admin/ai-drafts' ? draft : { id: 123 }) })
+afterEach(() => { app?.unmount(); app = undefined; document.body.innerHTML = ''; vi.restoreAllMocks(); vi.resetAllMocks(); localStorage.removeItem('ksnote-ai-terminal-theme') })
 async function mount() {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: HomeAiPublisher }, { path: '/posts/:id', name: 'post-detail', component: { template: '<p>Detail</p>' } }] })
   await router.push('/')
@@ -19,6 +19,35 @@ async function mount() {
   const category = host.querySelector('select')!; category.value = '25'; category.dispatchEvent(new Event('change')); await nextTick()
   return { host, router }
 }
+it('switches terminal modes without changing the draft or submitting it, and remembers the choice', async () => {
+  const { host } = await mount()
+  const calls = vi.mocked(api).mock.calls.length
+  expect(host.querySelector('.terminal-question-label')?.textContent).not.toContain('$')
+  expect(host.querySelector('.terminal-dots')).toBeNull()
+  expect(host.querySelector('form')?.getAttribute('data-theme')).toBe('light')
+  expect(host.querySelectorAll('.terminal-theme-button')).toHaveLength(1)
+  expect(host.querySelector('[aria-label="라이트 모드"]')).toBeNull()
+  expect(host.querySelector('.terminal-status')).toBeNull()
+  expect(host.textContent).not.toContain('Markdown 초안 + 출처')
+  host.querySelector<HTMLButtonElement>('[aria-label="다크 모드"]')!.click(); await nextTick()
+  expect(host.querySelector('form')?.getAttribute('data-theme')).toBe('dark')
+  expect(host.querySelector('[aria-label="다크 모드"]')).toBeNull()
+  expect(host.querySelectorAll('.terminal-theme-button')).toHaveLength(1)
+  expect(localStorage.getItem('ksnote-ai-terminal-theme')).toBe('dark')
+  expect(host.querySelector('textarea')?.value).toBe(draft.question)
+  expect(host.querySelector('select')?.value).toBe('25')
+  expect(api).toHaveBeenCalledTimes(calls)
+  host.querySelector<HTMLButtonElement>('[aria-label="라이트 모드"]')!.click(); await nextTick()
+  expect(host.querySelector('form')?.getAttribute('data-theme')).toBe('light')
+})
+it('restores light mode and can switch even when browser storage rejects writes', async () => {
+  localStorage.setItem('ksnote-ai-terminal-theme', 'light')
+  const { host } = await mount()
+  expect(host.querySelector('form')?.getAttribute('data-theme')).toBe('light')
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('storage denied') })
+  host.querySelector<HTMLButtonElement>('[aria-label="다크 모드"]')!.click(); await nextTick()
+  expect(host.querySelector('form')?.getAttribute('data-theme')).toBe('dark')
+})
 it('researches and publishes from multiline input, retaining provenance and category', async () => {
   const { host, router } = await mount()
   expect(host.textContent).toContain('즉시 공개됩니다')
