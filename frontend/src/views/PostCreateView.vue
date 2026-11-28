@@ -206,7 +206,7 @@ onBeforeUnmount(() => {
 <template>
   <main class="post-editor-page">
     <nav class="editor-nav" aria-label="글쓰기 메뉴">
-      <RouterLink to="/">← DevFlow</RouterLink>
+      <RouterLink to="/">← KsNote</RouterLink>
       <RouterLink to="/my-posts">내 글</RouterLink>
       <RouterLink to="/admin">관리자</RouterLink>
     </nav>

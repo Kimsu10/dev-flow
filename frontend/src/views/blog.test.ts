@@ -40,7 +40,10 @@ it('loads home with one request, dynamic categories and at most three cards per 
   expect(host.textContent).not.toContain('빈 카테고리')
   expect(fetchMock).toHaveBeenCalledTimes(1)
   expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/blog/home')
-  expect(host.querySelector('h1')?.textContent).toBe('Blog.')
+  expect(host.querySelector('h1')?.textContent).toBe('기술 노트 with AI')
+  expect(host.querySelector('.blog-brand')?.textContent).toBe('+KsNotewith AI')
+  expect(host.querySelector('.blog-intro-description')?.textContent).toContain('AI에게 오늘 배운 지식을 알려주세요.')
+  expect(host.querySelector('.category-nav')).toBeNull()
 })
 it('shows a genuine empty state without invented articles', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ categories: [] })))

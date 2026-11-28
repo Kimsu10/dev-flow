@@ -5,6 +5,7 @@ import { auth, logout } from '../../auth'
 import { computed, ref, watch } from 'vue'
 import PostSearchField from './PostSearchField.vue'
 import ServiceStatus from './ServiceStatus.vue'
+import AiWordmark from './AiWordmark.vue'
 const message = ref('')
 const route = useRoute(), router = useRouter()
 const showLogin = computed(() => auth.ready && !auth.user && !route.matched.some(record => record.path === '/login'))
@@ -28,7 +29,7 @@ async function signOut() { try { await logout() } catch { message.value = '로�
   <div class="blog-shell">
     <a class="skip-to-content" href="#main-content">본문으로 바로 가기</a>
     <header class="blog-header">
-      <RouterLink class="blog-brand" to="/" aria-label="DevFlow 홈"><span class="brand-mark" aria-hidden="true">/</span>DevFlow<span class="brand-dot">.</span></RouterLink>
+      <RouterLink class="blog-brand" to="/" aria-label="KsNote with AI 홈"><span class="brand-mark" aria-hidden="true">+</span><span>KsNote</span><AiWordmark /></RouterLink>
       <div class="blog-header-controls">
         <form class="blog-header-search" role="search" aria-label="블로그 전체 검색" @submit.prevent="searchPosts"><PostSearchField id="header-post-search" v-model="searchInput" hide-label /></form>
         <nav v-if="auth.user?.role === 'ADMIN'" class="blog-primary-nav" aria-label="주요 메뉴">
@@ -44,7 +45,7 @@ async function signOut() { try { await logout() } catch { message.value = '로�
     </header>
     <main id="main-content" class="blog-page" tabindex="-1"><p v-if="message" role="alert">{{ message }}</p><slot /></main>
     <footer class="blog-footer">
-      <span>© {{ new Date().getFullYear() }} DevFlow</span>
+      <span>© {{ new Date().getFullYear() }} KsNote with AI</span>
       <AnalyticsConsent show-settings />
       <button v-if="isAdmin" type="button" class="outlined-link" aria-haspopup="dialog"
         @click="statusOpen = true">서비스 상태</button>

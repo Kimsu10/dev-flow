@@ -45,8 +45,8 @@ async function publish() {
 <template>
   <form class="home-ai-publisher" aria-label="AI 글 발행" @submit.prevent="publish">
     <label for="home-ai-question">어떤 주제로 글을 작성할까요?</label>
+    <p id="home-ai-notice">입력 내용은 AI 서비스에 전달되며, 발행하면 원래 질문·AI 작성 안내·출처와 함께 즉시 공개됩니다.<br><strong>개인정보나 비밀정보를 입력하지 마세요.</strong> AI 작성 내용에는 오류가 있을 수 있으며 발행 후 수정할 수 있습니다.</p>
     <textarea id="home-ai-question" v-model="question" rows="4" required maxlength="2000" :disabled="busy" aria-describedby="home-ai-notice" placeholder="다루고 싶은 기술, 경험, 궁금한 내용을 여러 문장으로 입력해 주세요." />
-    <p id="home-ai-notice">입력 내용은 AI 서비스에 전달되며, 발행하면 원래 질문·AI 작성 안내·출처와 함께 즉시 공개됩니다. 개인정보나 비밀정보를 입력하지 마세요. AI 작성 내용에는 오류가 있을 수 있으며 발행 후 수정할 수 있습니다.</p>
     <div class="home-ai-actions">
       <label for="home-ai-category">카테고리</label>
       <select id="home-ai-category" v-model="categoryId" required :disabled="busy"><option :value="null" disabled>카테고리 선택</option><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select>
@@ -60,9 +60,10 @@ async function publish() {
 
 <style scoped>
 .home-ai-publisher { margin-top: 28px; padding: 22px; border: 1px solid #d4d4d4; border-radius: 10px; background: #fafcfb; }
-.home-ai-publisher > label { font-weight: 600; font-size: 15px; }
-textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 12px; padding: 14px; border: 1px solid #cbd4ce; border-radius: 6px; background: white; font: inherit; line-height: 1.7; resize: vertical; }
+.home-ai-publisher > label { font-weight: 600; font-size: 20px; }
+textarea { display: block; width: 100%; box-sizing: border-box; margin: 12px 0 16px; padding: 14px; border: 1px solid #cbd4ce; border-radius: 6px; background: white; font: inherit; line-height: 1.7; resize: vertical; }
 #home-ai-notice { color: #626b65; font-size: 12px; line-height: 1.7; }
+#home-ai-notice strong { color: #333; font-weight: 700; }
 .home-ai-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; }
 select { min-width: 0; max-width: 100%; padding: 10px; border: 1px solid #cbd4ce; border-radius: 6px; font: inherit; }
 .ai-publish-button { margin-left: auto; min-height: 44px; background: #1e4434; color: white; border-color: #1e4434; }
